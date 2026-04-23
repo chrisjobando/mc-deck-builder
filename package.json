@@ -1,0 +1,40 @@
+{
+  "name": "mc-deckbuilder",
+  "type": "module",
+  "version": "0.0.1",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "db:sync": "node scripts/sync-cards.mjs"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.71",
+    "@astrojs/react": "^5.0.4",
+    "@astrojs/vercel": "^10.0.5",
+    "@auth/core": "^0.37.4",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "@supabase/supabase-js": "^2.104.0",
+    "@tailwindcss/vite": "^4.2.4",
+    "ai": "^6.0.168",
+    "astro": "^6.1.9",
+    "auth-astro": "^4.2.0",
+    "pg": "^8.20.0",
+    "postgres": "^3.4.9",
+    "prisma": "^7.8.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "tailwindcss": "^4.2.4"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "dotenv": "^17.4.2",
+    "typescript": "^6.0.3"
+  }
+}
