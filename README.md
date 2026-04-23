@@ -1,43 +1,39 @@
-# Astro Starter Kit: Minimal
+# Marvel Champions AI Deck Builder
+
+An AI-powered deck builder for the Marvel Champions LCG. Build optimized decks for 1–4 players with Claude AI recommendations based on your owned card collection.
+
+## Stack
+
+- **Astro 6** (SSR, Vercel adapter) + **React 19**
+- **Tailwind CSS v4**
+- **Prisma** + **Supabase** (PostgreSQL)
+- **auth-astro** — Google & Discord OAuth
+- **Anthropic AI SDK** — Claude-powered deck suggestions
+
+## Getting Started
 
 ```sh
-pnpm create astro@latest -- --template minimal
+pnpm install
+cp .env.example .env   # fill in your credentials
+pnpm dev
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+## Environment Variables
 
-## 🚀 Project Structure
+| Variable | Description |
+| --- | --- |
+| `DATABASE_URL` | Supabase PostgreSQL connection string |
+| `AUTH_SECRET` | Random secret for Auth.js session signing |
+| `AUTH_TRUST_HOST` | Set to `true` |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth credentials |
+| `AUTH_DISCORD_ID` / `AUTH_DISCORD_SECRET` | Discord OAuth credentials |
+| `ANTHROPIC_API_KEY` | Anthropic API key for Claude |
 
-Inside of your Astro project, you'll see the following folders and files:
+## Commands
 
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
-```
-
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
-
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
-
-Any static assets, like images, can be placed in the `public/` directory.
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `pnpm install`             | Installs dependencies                            |
-| `pnpm dev`             | Starts local dev server at `localhost:4321`      |
-| `pnpm build`           | Build your production site to `./dist/`          |
-| `pnpm preview`         | Preview your build locally, before deploying     |
-| `pnpm astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `pnpm astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+| Command | Action |
+| --- | --- |
+| `pnpm dev` | Start dev server at `localhost:4321` |
+| `pnpm build` | Build for production |
+| `pnpm preview` | Preview production build |
+| `pnpm db:sync` | Sync cards from MarvelCDB API |
