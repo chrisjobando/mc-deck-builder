@@ -1,6 +1,7 @@
 import Discord from '@auth/core/providers/discord';
 import Google from '@auth/core/providers/google';
 import { defineConfig } from 'auth-astro';
+import { prisma } from './src/lib/db';
 
 export default defineConfig({
   providers: [
@@ -14,11 +15,32 @@ export default defineConfig({
     }),
   ],
   callbacks: {
-    session: ({ session, token }) => ({
+    jwt: async ({ token, user }: any) => {
+      if (user) {
+        const email = token.email;
+        if (email) {
+          const dbUser = await prisma.user.upsert({
+            where: { email },
+            update: {
+              name: user.name ?? undefined,
+              image: user.image ?? undefined,
+            },
+            create: {
+              email,
+              name: user.name ?? null,
+              image: user.image ?? null,
+            },
+          });
+          token.dbUserId = dbUser.id;
+        }
+      }
+      return token;
+    },
+    session: ({ session, token }: any) => ({
       ...session,
       user: {
         ...session.user,
-        id: token.sub,
+        id: (token as any).dbUserId ?? token.sub,
       },
     }),
   },
