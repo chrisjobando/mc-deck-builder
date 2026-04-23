@@ -1,0 +1,198 @@
+// Marvel Champions Deck Builder - Prisma Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Enums
+enum Aspect {
+  Basic
+  Aggression
+  Justice
+  Leadership
+  Pool
+  Protection
+}
+
+enum SessionStatus {
+  draft
+  ready
+  completed
+}
+
+enum CollectionMode {
+  single     // Use one player's collection
+  combined   // Union of all collections
+  duplicates // Sum of all collections
+}
+
+// Users table
+model User {
+  id                  String               @id @default(uuid())
+  email               String               @unique
+  name                String?
+  image               String?
+  ownedPacks          String[]             @default([])
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  
+  decks               Deck[]
+  hostedSessions      Session[]            @relation("HostedSessions")
+  ownedSessions       Session[]            @relation("CollectionOwner")
+  sessionParticipants SessionParticipant[]
+
+  @@map("users")
+}
+
+// Decks table
+model Deck {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  heroCardId  String   @map("hero_card_id")
+  aspects     Aspect[] @default([])
+  cards       Json     @default("[]") // Array of { cardId, quantity }
+  isPublic    Boolean  @default(false) @map("is_public")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id])
+  heroCard    HeroCard @relation(fields: [heroCardId], references: [id])
+  
+  sessionParticipants SessionParticipant[]
+
+  @@map("decks")
+}
+
+// Hero identity cards - core record for the hero
+model HeroCard {
+  id            String   @id
+  name          String
+  health        Int
+  isMultiAspect Boolean  @default(false) @map("is_multi_aspect")
+  packCode      String?  @map("pack_code")
+  packName      String?  @map("pack_name")
+  dataHash      String?  @map("data_hash") // MD5 hash for change detection
+  syncedAt      DateTime @default(now()) @map("synced_at")
+
+  identities          HeroIdentity[]
+  decks               Deck[]
+  deckCards           DeckCard[]
+  sessionParticipants SessionParticipant[]
+
+  @@map("hero_cards")
+}
+
+// Hero identities - each side/form of a hero
+model HeroIdentity {
+  id           String  @id
+  heroId       String  @map("hero_id")
+  identityType String  @map("identity_type") // 'hero', 'alter_ego', 'hero_2', etc.
+  name         String
+  attack       Int?
+  defense      Int?
+  handSize     Int?    @map("hand_size")
+  imageUrl     String? @map("image_url")
+  recover      Int?
+  text         String?
+  thwart       Int?
+  traits       String?
+  dataHash     String?  @map("data_hash") // MD5 hash for change detection
+
+  hero HeroCard @relation(fields: [heroId], references: [id])
+
+  @@map("hero_identities")
+}
+
+// Deck cards (allies, events, supports, upgrades, resources)
+model DeckCard {
+  id                  String   @id
+  name                String
+  type                String   // ally, event, support, upgrade, resource
+  aspect              String?
+  cost                Int?
+  attack              Int?
+  attackConsequential Int?     @map("attack_consequential")
+  thwart              Int?
+  thwartConsequential Int?     @map("thwart_consequential")
+  health              Int?
+  traits              String?
+  text                String?
+  imageUrl            String?  @map("image_url")
+  isUnique            Boolean  @default(false) @map("is_unique")
+  deckLimit           Int      @default(3) @map("deck_limit")
+  quantity            Int      @default(1)
+  resourceEnergy      Int?     @map("resource_energy")
+  resourceMental      Int?     @map("resource_mental")
+  resourcePhysical    Int?     @map("resource_physical")
+  resourceWild        Int?     @map("resource_wild")
+  packCode            String?  @map("pack_code")
+  packName            String?  @map("pack_name")
+  heroId              String?  @map("hero_id")
+  dataHash            String?  @map("data_hash") // MD5 hash for change detection
+  syncedAt            DateTime @default(now()) @map("synced_at")
+
+  hero HeroCard? @relation(fields: [heroId], references: [id])
+
+  @@map("deck_cards")
+}
+
+// Rules documents (for AI context/RAG)
+model RulesDocument {
+  id        String   @id @default(uuid())
+  title     String
+  section   String?
+  content   String   // Extracted text from PDF for AI
+  fileUrl   String?  @map("file_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("rules_documents")
+}
+
+// Multiplayer deck-building sessions
+model Session {
+  id                String         @id @default(uuid())
+  name              String
+  inviteCode        String         @unique @map("invite_code")
+  status            SessionStatus  @default(draft)
+  collectionMode    CollectionMode @default(combined) @map("collection_mode")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+  
+  hostId            String         @map("host_id")
+  host              User           @relation("HostedSessions", fields: [hostId], references: [id])
+  
+  collectionOwnerId String?        @map("collection_owner_id")
+  collectionOwner   User?          @relation("CollectionOwner", fields: [collectionOwnerId], references: [id])
+  
+  participants      SessionParticipant[]
+
+  @@map("sessions")
+}
+
+// Session participants (1-4 players per session)
+model SessionParticipant {
+  id         String   @id @default(uuid())
+  aspects    Aspect[] @default([])
+  joinedAt   DateTime @default(now()) @map("joined_at")
+  
+  sessionId  String   @map("session_id")
+  session    Session  @relation(fields: [sessionId], references: [id])
+  
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id])
+  
+  heroCardId String?  @map("hero_card_id")
+  heroCard   HeroCard? @relation(fields: [heroCardId], references: [id])
+  
+  deckId     String?  @map("deck_id")
+  deck       Deck?    @relation(fields: [deckId], references: [id])
+
+  @@map("session_participants")
+}
