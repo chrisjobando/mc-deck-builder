@@ -33,9 +33,9 @@ const user = await getUser(Astro);
           {user ? (
             <div class="flex items-center gap-3">
               <img
-                src={user.image || '/default-avatar.svg'}
+                src={user.image || '/favicon.svg'}
                 alt={user.name || 'User'}
-                class="h-8 w-8 rounded-full"
+                class="h-8 w-8 rounded-full object-cover"
               />
               <a
                 href="/api/auth/signout"

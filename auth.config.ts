@@ -17,6 +17,8 @@ export default defineConfig({
   callbacks: {
     jwt: async ({ token, user }: any) => {
       if (user) {
+        if (user.image) token.picture = user.image;
+        if (user.name) token.name = user.name;
         const email = token.email;
         if (email) {
           const dbUser = await prisma.user.upsert({
@@ -41,6 +43,8 @@ export default defineConfig({
       user: {
         ...session.user,
         id: (token as any).dbUserId ?? token.sub,
+        image: (token as any).picture ?? session.user?.image ?? null,
+        name: token.name ?? session.user?.name ?? null,
       },
     }),
   },
