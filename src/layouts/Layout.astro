@@ -1,0 +1,65 @@
+---
+import { getUser } from '../lib/auth';
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+const user = await getUser(Astro);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="AI-powered Marvel Champions deck builder" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title} | MC Deck Builder</title>
+  </head>
+  <body class="min-h-screen bg-[var(--color-background)] text-[var(--color-text)]">
+    <header class="border-b border-white/10">
+      <nav class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
+        <a href="/" class="text-xl font-bold text-[var(--color-primary)]">
+          MC Deck Builder
+        </a>
+        <div class="flex items-center gap-4">
+          <a href="/browse" class="hover:text-[var(--color-secondary)]">Browse</a>
+          <a href="/decks" class="hover:text-[var(--color-secondary)]">My Decks</a>
+          <a href="/sessions" class="hover:text-[var(--color-secondary)]">Sessions</a>
+          <a href="/builder" class="hover:text-[var(--color-secondary)]">AI Builder</a>
+          {user ? (
+            <div class="flex items-center gap-3">
+              <img
+                src={user.image || '/default-avatar.svg'}
+                alt={user.name || 'User'}
+                class="h-8 w-8 rounded-full"
+              />
+              <a
+                href="/api/auth/signout"
+                class="rounded bg-white/10 px-3 py-1 text-sm hover:bg-white/20"
+              >
+                Sign Out
+              </a>
+            </div>
+          ) : (
+            <a
+              href="/api/auth/signin"
+              class="rounded bg-[var(--color-primary)] px-4 py-2 font-medium hover:opacity-90"
+            >
+              Sign In
+            </a>
+          )}
+        </div>
+      </nav>
+    </header>
+    <main class="mx-auto max-w-7xl px-4 py-8">
+      <slot />
+    </main>
+    <footer class="border-t border-white/10 py-6 text-center text-sm text-[var(--color-text-muted)]">
+      <p>Built with Astro, Claude AI, and ❤️ for Marvel Champions</p>
+    </footer>
+  </body>
+</html>

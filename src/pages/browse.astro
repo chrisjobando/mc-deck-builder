@@ -1,0 +1,959 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { prisma } from '../lib/db';
+import type { HeroCard, HeroIdentity, DeckCard } from '../lib/db';
+
+// Fetch all cards with full data using Prisma
+const heroes = await prisma.heroCard.findMany({ orderBy: { name: 'asc' } });
+const identities = await prisma.heroIdentity.findMany();
+const cards = await prisma.deckCard.findMany({ orderBy: { name: 'asc' } });
+
+// Group identities by heroId
+const identitiesByHero = identities.reduce<Record<string, HeroIdentity[]>>((acc: Record<string, HeroIdentity[]>, identity: HeroIdentity) => {
+  if (!acc[identity.heroId]) {
+    acc[identity.heroId] = [];
+  }
+  acc[identity.heroId].push(identity);
+  return acc;
+}, {});
+
+// Create hero name lookup by ID
+const heroNameById = new Map<string, string>();
+heroes.forEach((h: HeroCard) => heroNameById.set(h.id, h.name));
+
+// Get unique packs
+const allPacks = [...new Set([
+  ...heroes.map((h: HeroCard) => h.packName),
+  ...cards.map((c: DeckCard) => c.packName)
+])].filter(Boolean).sort();
+
+// Consolidate deck cards that appear in multiple packs (group by name + text)
+const cardsByKey = new Map<string, DeckCard[]>();
+for (const card of cards) {
+  // Use name + text as the deduplication key (handles same-name different cards)
+  const key = `${card.name}|||${card.text || ''}`;
+  if (!cardsByKey.has(key)) {
+    cardsByKey.set(key, []);
+  }
+  cardsByKey.get(key)!.push(card);
+}
+
+// Combine for display - include all fields for modal
+const allCards = [
+  ...heroes
+    .filter((h: HeroCard) => identitiesByHero[h.id]?.length > 0) // Filter out heroes with no identities
+    .map((h: HeroCard) => {
+    const heroIdentitiesList = identitiesByHero[h.id] || [];
+    // Find the first hero identity for display in grid
+    const primaryIdentity = heroIdentitiesList.find((i: HeroIdentity) => i.identityType.startsWith('hero')) || heroIdentitiesList[0];
+    
+    return {
+      id: h.id,
+      name: h.name,
+      imageUrl: primaryIdentity?.imageUrl || null,
+      packName: h.packName,
+      packCode: h.packCode,
+      packs: [{ name: h.packName, code: h.packCode }].filter(p => p.name),
+      type: 'hero' as const,
+      quantity: 1,
+      aspect: null as string | null,
+      health: h.health,
+      isMultiAspect: h.isMultiAspect,
+      // Identities for modal switching
+      identities: heroIdentitiesList.map((i: HeroIdentity) => ({
+        id: i.id,
+        identityType: i.identityType,
+        name: i.name,
+        imageUrl: i.imageUrl,
+        attack: i.attack,
+        thwart: i.thwart,
+        defense: i.defense,
+        recover: i.recover,
+        handSize: i.handSize,
+        traits: i.traits,
+        text: i.text,
+      })),
+      // Deck card fields (null for heroes)
+      cost: null as number | null,
+      text: null as string | null,
+      deckLimit: null as number | null,
+      isUnique: null as boolean | null,
+      heroId: null as string | null,
+    };
+  }),
+
+  // Consolidated deck cards - one entry per unique card with multiple packs
+  ...Array.from(cardsByKey.values()).map((duplicates: DeckCard[]) => {
+    const c = duplicates[0]; // Use first as representative
+    const packs = duplicates.map(d => ({ name: d.packName, code: d.packCode })).filter(p => p.name);
+    // Get unique packs (same card might be listed multiple times in same pack)
+    const uniquePacks = packs.filter((p, i, arr) => arr.findIndex(x => x.code === p.code) === i);
+    
+    // Collect all unique art variants (different imageUrls), filter out nulls
+    const artVariants = duplicates
+      .filter(d => d.imageUrl) // Skip null images
+      .map(d => ({ imageUrl: d.imageUrl!, packName: d.packName, packCode: d.packCode }))
+      .filter((v, i, arr) => arr.findIndex(x => x.imageUrl === v.imageUrl) === i); // Unique by URL
+    
+    // Sum quantities from all duplicates
+    const totalQuantity = duplicates.reduce((sum, d) => sum + (d.quantity || 1), 0);
+    
+    return {
+      id: c.id,
+      name: c.name,
+      imageUrl: artVariants[0]?.imageUrl || null,
+      packName: uniquePacks.length === 1 ? uniquePacks[0].name : null,
+      packCode: uniquePacks.length === 1 ? uniquePacks[0].code : null,
+      packs: uniquePacks,
+      artVariants, // All different art versions
+      type: c.type,
+      aspect: c.aspect,
+      quantity: totalQuantity,
+      // Hero fields (null for deck cards, except health which allies have)
+      health: c.health,
+      isMultiAspect: null as boolean | null,
+      identities: [] as any[],
+      // Deck card fields
+      cost: c.cost,
+      attack: c.attack,
+      thwart: c.thwart,
+      attackConsequential: c.attackConsequential,
+      thwartConsequential: c.thwartConsequential,
+      traits: c.traits,
+      text: c.text,
+      deckLimit: c.deckLimit,
+      isUnique: c.isUnique,
+      heroId: c.heroId,
+      heroName: c.heroId ? heroNameById.get(c.heroId) || null : null,
+      // Resource (only one type per card, but can have count > 1)
+      resourceEnergy: c.resourceEnergy,
+      resourceMental: c.resourceMental,
+      resourcePhysical: c.resourcePhysical,
+      resourceWild: c.resourceWild,
+    };
+  })
+];
+
+// Split cards - displayCards excludes hero-specific, allCards includes all for modal
+const displayCards = allCards.filter(c => !c.heroId);
+
+// JSON for client-side modal
+const cardsJson = JSON.stringify(allCards);
+---
+
+<Layout title="Browse Cards">
+  <div class="mb-6">
+    <h1 class="text-3xl font-bold mb-4">Browse Cards</h1>
+    <p class="text-[var(--color-text-muted)] mb-4">
+      {displayCards.length} cards loaded from {allPacks.length} packs
+    </p>
+    
+    <!-- Pack Filter -->
+    <details class="bg-[var(--color-surface)] rounded-lg p-4 mb-6">
+      <summary class="cursor-pointer font-semibold">Filter by Pack ({allPacks.length} packs)</summary>
+      <div class="mt-4 flex flex-wrap gap-2" id="pack-filters">
+        <button 
+          id="select-all-btn"
+          class="text-sm px-3 py-1 rounded inline-flex items-center justify-center leading-none bg-[var(--color-primary)] hover:opacity-80"
+        >
+          Select All
+        </button>
+        <button 
+          id="select-none-btn"
+          class="text-sm px-3 py-1 rounded inline-flex items-center justify-center leading-none bg-white/10 hover:bg-white/20"
+        >
+          Select None
+        </button>
+      </div>
+      <div class="mt-3 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2" id="pack-checkboxes">
+        {allPacks.map(pack => (
+          <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-[var(--color-primary)]">
+            <input 
+              type="checkbox" 
+              class="pack-filter" 
+              value={pack} 
+              checked 
+            />
+            <span class="truncate">{pack}</span>
+          </label>
+        ))}
+      </div>
+    </details>
+
+    <!-- Type Filter -->
+    <div class="flex flex-wrap gap-2 mb-6">
+      <button class="type-filter active px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-[var(--color-primary)]" data-type="all">
+        All
+      </button>
+      <button class="type-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-white/10 hover:bg-white/20" data-type="hero">
+        Heroes
+      </button>
+      <button class="type-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-white/10 hover:bg-white/20" data-type="ally">
+        Allies
+      </button>
+      <button class="type-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-white/10 hover:bg-white/20" data-type="event">
+        Events
+      </button>
+      <button class="type-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-white/10 hover:bg-white/20" data-type="resource">
+        Resources
+      </button>
+      <button class="type-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-white/10 hover:bg-white/20" data-type="support">
+        Supports
+      </button>
+      <button class="type-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-white/10 hover:bg-white/20" data-type="upgrade">
+        Upgrades
+      </button>
+    </div>
+
+    <!-- Aspect Filter -->
+    <div class="flex flex-wrap gap-2 mb-6">
+      <button class="aspect-filter active px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-[var(--color-primary)]" data-aspect="all">
+        All Aspects
+      </button>
+      <button class="aspect-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-gray-600/50 hover:bg-gray-600" data-aspect="Basic">
+        Basic
+      </button>
+      <button class="aspect-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-red-600/50 hover:bg-red-600" data-aspect="Aggression">
+        Aggression
+      </button>
+      <button class="aspect-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-yellow-600/50 hover:bg-yellow-600" data-aspect="Justice">
+        Justice
+      </button>
+      <button class="aspect-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-blue-600/50 hover:bg-blue-600" data-aspect="Leadership">
+        Leadership
+      </button>
+      <button class="aspect-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-pink-600/50 hover:bg-pink-600" data-aspect="Pool">
+        Pool
+      </button>
+      <button class="aspect-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-green-600/50 hover:bg-green-600" data-aspect="Protection">
+        Protection
+      </button>
+    </div>
+
+    <!-- Search -->
+    <input 
+      type="text" 
+      id="search-input"
+      placeholder="Search cards..."
+      class="w-full md:w-96 px-4 py-2 rounded-lg bg-[var(--color-surface)] border border-white/10 focus:border-[var(--color-primary)] focus:outline-none"
+    />
+  </div>
+
+  <!-- Card count -->
+  <p class="text-[var(--color-text-muted)] mb-4" id="card-count">
+    Showing {allCards.length} cards
+  </p>
+
+  <!-- Card Grid -->
+  <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4" id="card-grid">
+    {displayCards.map(card => (
+      <div 
+        class="card-item bg-[var(--color-surface)] rounded-lg overflow-hidden hover:ring-2 hover:ring-[var(--color-primary)] transition-all cursor-pointer"
+        data-pack={card.packName}
+        data-packs={JSON.stringify(card.packs?.map((p: {name: string | null}) => p.name) || [])}
+        data-type={card.type}
+        data-aspect={card.aspect || ''}
+        data-name={card.name.toLowerCase()}
+        data-id={card.id}
+      >
+        <div class="aspect-[63/88] bg-black/50 relative">
+          {card.imageUrl ? (
+            <img 
+              src={card.imageUrl} 
+              alt={card.name}
+              class="w-full h-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div class="w-full h-full flex items-center justify-center text-[var(--color-text-muted)]">
+              No Image
+            </div>
+          )}
+          {card.quantity > 1 && (
+            <span class="absolute top-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded inline-flex items-center justify-center leading-none">
+              x{card.quantity}
+            </span>
+          )}
+          {card.aspect && (
+            <span class={`absolute bottom-2 left-2 text-xs px-2 py-1 rounded inline-flex items-center justify-center leading-none ${
+              card.aspect === 'Aggression' ? 'bg-red-600' :
+              card.aspect === 'Justice' ? 'bg-yellow-600' :
+              card.aspect === 'Leadership' ? 'bg-blue-600' :
+              card.aspect === 'Protection' ? 'bg-green-600' :
+              card.aspect === 'Pool' ? 'bg-pink-600' :
+              'bg-gray-600'
+            }`}>
+              {card.aspect}
+            </span>
+          )}
+          {card.type === 'hero' && (
+            <span class="absolute bottom-2 left-2 text-xs px-2 py-1 rounded inline-flex items-center justify-center leading-none bg-purple-600">
+              Hero
+            </span>
+          )}
+        </div>
+        <div class="p-2">
+          <h3 class="font-semibold text-sm truncate" title={card.name}>{card.name}</h3>
+          <p class="text-xs text-[var(--color-text-muted)] truncate" title={card.packName}>
+            {card.packName}
+          </p>
+        </div>
+      </div>
+    ))}
+  </div>
+
+  <!-- Card Detail Modal -->
+  <div id="card-modal" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4">
+    <div class="bg-[var(--color-surface)] rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto relative">
+      <button id="modal-close" class="absolute top-4 right-4 text-2xl hover:text-[var(--color-primary)]">&times;</button>
+      <div class="p-6" id="modal-content">
+        <!-- Content injected by JS -->
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script define:vars={{ cardsJson }}>
+  window.allCardsData = JSON.parse(cardsJson);
+</script>
+
+<script>
+  const cardItems = document.querySelectorAll('.card-item');
+  const packFilters = document.querySelectorAll('.pack-filter');
+  const typeFilters = document.querySelectorAll('.type-filter');
+  const aspectFilters = document.querySelectorAll('.aspect-filter');
+  const searchInput = document.getElementById('search-input') as HTMLInputElement;
+  const cardCount = document.getElementById('card-count');
+  const selectAllBtn = document.getElementById('select-all-btn');
+  const selectNoneBtn = document.getElementById('select-none-btn');
+  const modal = document.getElementById('card-modal');
+  const modalContent = document.getElementById('modal-content');
+  const modalClose = document.getElementById('modal-close');
+
+  // Get cards data from server
+  const allCardsData = (window as any).allCardsData as any[];
+
+  let selectedType = 'all';
+  let selectedAspect = 'all';
+  let searchQuery = '';
+
+  // Aspect color mapping for filter button highlighting
+  const aspectColorMap: Record<string, { full: string, muted: string }> = {
+    'Aggression': { full: 'bg-red-600', muted: 'bg-red-600/50' },
+    'Justice': { full: 'bg-yellow-600', muted: 'bg-yellow-600/50' },
+    'Leadership': { full: 'bg-blue-600', muted: 'bg-blue-600/50' },
+    'Protection': { full: 'bg-green-600', muted: 'bg-green-600/50' },
+    'Basic': { full: 'bg-gray-600', muted: 'bg-gray-600/50' },
+    'Pool': { full: 'bg-pink-600', muted: 'bg-pink-600/50' }
+  };
+
+  function getSelectedPacks(): Set<string> {
+    const selected = new Set<string>();
+    packFilters.forEach(cb => {
+      if ((cb as HTMLInputElement).checked) {
+        selected.add((cb as HTMLInputElement).value);
+      }
+    });
+    return selected;
+  }
+
+  function filterCards() {
+    const selectedPacks = getSelectedPacks();
+    let visibleCount = 0;
+
+    cardItems.forEach(item => {
+      const el = item as HTMLElement;
+      const pack = el.dataset.pack || '';
+      const packs = JSON.parse(el.dataset.packs || '[]') as string[];
+      const type = el.dataset.type || '';
+      const aspect = el.dataset.aspect || '';
+      const name = el.dataset.name || '';
+
+      // Check if any of the card's packs match selected packs
+      const packMatch = packs.length > 0 
+        ? packs.some(p => selectedPacks.has(p))
+        : selectedPacks.has(pack);
+      const typeMatch = selectedType === 'all' || type === selectedType;
+      const aspectMatch = selectedAspect === 'all' || aspect === selectedAspect || (selectedAspect === 'all' && type === 'hero');
+      const searchMatch = searchQuery === '' || name.includes(searchQuery.toLowerCase());
+
+      if (packMatch && typeMatch && aspectMatch && searchMatch) {
+        el.style.display = '';
+        visibleCount++;
+      } else {
+        el.style.display = 'none';
+      }
+    });
+
+    if (cardCount) {
+      cardCount.textContent = `Showing ${visibleCount} cards`;
+    }
+  }
+
+  // Pack filter listeners
+  packFilters.forEach(cb => {
+    cb.addEventListener('change', filterCards);
+  });
+
+  // Type filter listeners
+  typeFilters.forEach(btn => {
+    btn.addEventListener('click', () => {
+      typeFilters.forEach(b => {
+        b.classList.remove('active', 'bg-[var(--color-primary)]');
+        b.classList.add('bg-white/10');
+      });
+      btn.classList.add('active', 'bg-[var(--color-primary)]');
+      btn.classList.remove('bg-white/10');
+      selectedType = (btn as HTMLElement).dataset.type || 'all';
+      filterCards();
+    });
+  });
+
+  // Aspect filter listeners
+  aspectFilters.forEach(btn => {
+    btn.addEventListener('click', () => {
+      aspectFilters.forEach(b => {
+        b.classList.remove('active');
+        const aspect = (b as HTMLElement).dataset.aspect;
+        if (aspect === 'all') {
+          b.classList.remove('bg-[var(--color-primary)]');
+          b.classList.add('bg-white/10');
+        } else if (aspect && aspectColorMap[aspect]) {
+          // Reset to muted color for this specific aspect
+          b.classList.remove(aspectColorMap[aspect].full);
+          b.classList.add(aspectColorMap[aspect].muted);
+        }
+      });
+      btn.classList.add('active');
+      const aspect = (btn as HTMLElement).dataset.aspect;
+      if (aspect === 'all') {
+        btn.classList.add('bg-[var(--color-primary)]');
+        btn.classList.remove('bg-white/10');
+      } else if (aspect && aspectColorMap[aspect]) {
+        // Set selected aspect to full color
+        btn.classList.remove(aspectColorMap[aspect].muted);
+        btn.classList.add(aspectColorMap[aspect].full);
+      }
+      selectedAspect = aspect || 'all';
+      filterCards();
+    });
+  });
+
+  // Search listener
+  searchInput?.addEventListener('input', (e) => {
+    searchQuery = (e.target as HTMLInputElement).value;
+    filterCards();
+  });
+
+  // Select all/none
+  selectAllBtn?.addEventListener('click', () => {
+    packFilters.forEach(cb => (cb as HTMLInputElement).checked = true);
+    filterCards();
+  });
+
+  selectNoneBtn?.addEventListener('click', () => {
+    packFilters.forEach(cb => (cb as HTMLInputElement).checked = false);
+    filterCards();
+  });
+
+  // Modal functions
+  function getAspectColor(aspect: string | null): string {
+    switch (aspect) {
+      case 'Aggression': return 'bg-red-600';
+      case 'Justice': return 'bg-yellow-600';
+      case 'Leadership': return 'bg-blue-600';
+      case 'Protection': return 'bg-green-600';
+      case 'Pool': return 'bg-pink-600';
+      case 'Basic': return 'bg-gray-600';
+      default: return 'bg-gray-600';
+    }
+  }
+
+  function getIdentityLabel(identityType: string): string {
+    if (identityType === 'alter_ego') return 'Alter Ego';
+    if (identityType === 'hero') return 'Hero';
+    if (identityType.startsWith('hero_')) {
+      const num = identityType.replace('hero_', '');
+      return `Hero ${num}`;
+    }
+    return identityType;
+  }
+
+  function formatCardText(text: string): string {
+    // Replace [[text]] with bold uppercase, resource icons with emojis, then handle newlines
+    return text
+      .replace(/\[\[([^\]]+)\]\]/g, '<strong class="uppercase">$1</strong>')
+      .replace(/\[star\]/g, '★')
+      .replace(/\[wild\]/g, '🍃')
+      .replace(/\[energy\]/g, '⚡')
+      .replace(/\[mental\]/g, '🧪')
+      .replace(/\[physical\]/g, '👊')
+      .replace(/\n/g, '<br>');
+  }
+
+  function formatTraits(traits: string | null | undefined): string {
+    if (!traits) return '';
+    // Split by ". " or just "." at the end, filter empty strings
+    const traitList = traits.split(/\.\s*/).filter(t => t.trim());
+    return traitList.map(t => 
+      `<span class="px-2 pt-1 pb-1.5 bg-white/10 rounded text-sm">${t.trim()}</span>`
+    ).join('');
+  }
+
+  let currentCardId: string | null = null;
+  let currentIdentityIndex = 0;
+  let currentArtIndex = 0; // Track current art variant for deck cards
+  let parentHeroId: string | null = null; // Track hero when viewing hero-specific card
+
+  function renderHeroModal(card: any, identityIndex: number) {
+    if (!modalContent) return;
+    
+    const identities = card.identities || [];
+    const identity = identities[identityIndex] || identities[0];
+    
+    // Build identity toggle buttons
+    let identityToggleHtml = '';
+    if (identities.length > 1) {
+      identityToggleHtml = `
+        <div class="flex flex-wrap gap-2 mb-4" id="identity-toggles">
+          ${identities.map((id: any, idx: number) => `
+            <button 
+              class="identity-toggle px-3 py-2 rounded-lg text-sm font-medium inline-flex items-center justify-center leading-none transition-all ${
+                idx === identityIndex 
+                  ? 'bg-[var(--color-primary)] ring-2 ring-white/50' 
+                  : 'bg-white/10 hover:bg-white/20'
+              }"
+              data-index="${idx}"
+            >
+              ${getIdentityLabel(id.identityType)}
+            </button>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    // Stats from current identity
+    const statsHtml = `
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <div class="text-center p-3 bg-black/30 rounded-lg">
+          <div class="text-2xl font-bold text-red-500">${identity?.attack ?? '-'}</div>
+          <div class="text-xs text-[var(--color-text-muted)]">ATK</div>
+        </div>
+        <div class="text-center p-3 bg-black/30 rounded-lg">
+          <div class="text-2xl font-bold text-blue-500">${identity?.thwart ?? '-'}</div>
+          <div class="text-xs text-[var(--color-text-muted)]">THW</div>
+        </div>
+        <div class="text-center p-3 bg-black/30 rounded-lg">
+          <div class="text-2xl font-bold text-green-500">${identity?.defense ?? '-'}</div>
+          <div class="text-xs text-[var(--color-text-muted)]">DEF</div>
+        </div>
+        <div class="text-center p-3 bg-black/30 rounded-lg">
+          <div class="text-2xl font-bold text-yellow-500">${identity?.recover ?? '-'}</div>
+          <div class="text-xs text-[var(--color-text-muted)]">REC</div>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="p-3 bg-black/30 rounded-lg">
+          <span class="text-[var(--color-text-muted)]">Health:</span> 
+          <span class="font-bold">${card.health ?? '-'}</span>
+        </div>
+        <div class="p-3 bg-black/30 rounded-lg">
+          <span class="text-[var(--color-text-muted)]">Hand Size:</span> 
+          <span class="font-bold">${identity?.handSize ?? '-'}</span>
+        </div>
+      </div>
+    `;
+
+    const textHtml = identity?.text ? `
+      <div class="mb-4 p-4 bg-black/30 rounded-lg">
+        <div class="prose prose-invert prose-sm max-w-none">
+          ${formatCardText(identity.text)}
+        </div>
+      </div>
+    ` : '';
+
+    // Find hero-specific cards for this hero
+    const heroSpecificCards = allCardsData.filter((c: any) => c.heroId === card.id);
+    const heroSpecificCardsHtml = heroSpecificCards.length > 0 ? `
+      <div class="mt-6 pt-6 border-t border-white/10">
+        <h3 class="text-lg font-semibold mb-4">Hero-Specific Cards (${heroSpecificCards.length})</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          ${heroSpecificCards.map((c: any) => `
+            <div class="hero-specific-card bg-black/30 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-[var(--color-primary)]" data-card-id="${c.id}">
+              <div class="aspect-[63/88] relative">
+                ${c.imageUrl ? `
+                  <img src="${c.imageUrl}" alt="${c.name}" class="w-full h-full object-cover" loading="lazy" />
+                ` : `
+                  <div class="w-full h-full flex items-center justify-center text-[var(--color-text-muted)] text-xs">No Image</div>
+                `}
+                ${c.quantity > 1 ? `
+                  <span class="absolute top-1 right-1 bg-black/80 text-white text-xs px-1.5 py-0.5 rounded">x${c.quantity}</span>
+                ` : ''}
+              </div>
+              <div class="p-2">
+                <p class="text-xs font-medium truncate" title="${c.name}">${c.name}</p>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    ` : '';
+
+    const imageUrl = identity?.imageUrl || card.imageUrl;
+    const displayName = identity?.name || card.name;
+
+    modalContent.innerHTML = `
+      <div class="flex flex-col md:flex-row gap-6">
+        <div class="md:w-1/3 flex-shrink-0">
+          <div class="aspect-[63/88] relative rounded-lg overflow-hidden shadow-lg bg-black/50">
+            ${imageUrl ? `
+              <img src="${imageUrl}" alt="${displayName}" class="absolute inset-0 w-full h-full object-cover" id="modal-image" />
+            ` : `
+              <div class="absolute inset-0 flex items-center justify-center text-[var(--color-text-muted)]" id="modal-image">
+                No Image
+              </div>
+            `}
+          </div>
+        </div>
+        <div class="md:w-2/3">
+          <div class="mb-4">
+            <h2 class="text-2xl font-bold mb-2" id="modal-name">${displayName}</h2>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="filter-pill px-3 pt-0.5 pb-1.5 rounded-full text-sm font-medium inline-flex items-center justify-center leading-none bg-purple-600 cursor-pointer hover:ring-2 hover:ring-white/50" data-filter-type="hero">Hero</span>
+              ${card.isMultiAspect ? `
+                <span class="px-3 pt-0.5 pb-1.5 rounded-full text-sm font-medium inline-flex items-center justify-center leading-none bg-gradient-to-r from-red-600 via-yellow-500 to-blue-600">Multi-Aspect</span>
+              ` : ''}
+            </div>
+          </div>
+          
+          ${identityToggleHtml}
+          
+          <div class="flex flex-wrap gap-2 mb-4">
+            ${formatTraits(identity?.traits)}
+          </div>
+
+          ${statsHtml}
+          ${textHtml}
+          
+          <div class="flex flex-wrap gap-4 text-sm text-[var(--color-text-muted)]">
+            <div><strong>${card.packs?.length > 1 ? 'Packs' : 'Pack'}:</strong> 
+              ${card.packs?.length > 1 
+                ? card.packs.map((p: any) => `<span class="filter-pill cursor-pointer hover:text-[var(--color-primary)] underline" data-filter-pack="${p.name}">${p.name}</span>`).join(', ') 
+                : `<span class="filter-pill cursor-pointer hover:text-[var(--color-primary)] underline" data-filter-pack="${card.packName}">${card.packName}</span>`}
+            </div>
+          </div>
+          
+          ${heroSpecificCardsHtml}
+        </div>
+      </div>
+    `;
+
+    // Add identity toggle listeners
+    const toggleButtons = modalContent.querySelectorAll('.identity-toggle');
+    toggleButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt((btn as HTMLElement).dataset.index || '0');
+        currentIdentityIndex = idx;
+        if (currentCardId) {
+          const c = allCardsData.find((x: any) => x.id === currentCardId);
+          if (c) renderHeroModal(c, idx);
+        }
+      });
+    });
+    
+    // Add click handlers for filter pills
+    addFilterPillListeners();
+    
+    // Add click handlers for hero-specific cards
+    const heroSpecificCardEls = modalContent.querySelectorAll('.hero-specific-card');
+    heroSpecificCardEls.forEach(el => {
+      el.addEventListener('click', () => {
+        const cardId = (el as HTMLElement).dataset.cardId;
+        if (cardId) {
+          parentHeroId = currentCardId; // Remember which hero we came from
+          openModal(cardId);
+        }
+      });
+    });
+  }
+
+  function openModal(cardId: string) {
+    const card = allCardsData.find((c: any) => c.id === cardId);
+    if (!card || !modalContent || !modal) return;
+
+    currentCardId = cardId;
+    currentIdentityIndex = 0;
+
+    const isHero = card.type === 'hero';
+    
+    if (isHero) {
+      parentHeroId = null; // Clear parent hero when viewing a hero directly
+      renderHeroModal(card, 0);
+    } else {
+      // Deck card
+      currentArtIndex = 0;
+      renderDeckCardModal(card, 0);
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function renderDeckCardModal(card: any, artIndex: number) {
+    if (!modalContent) return;
+    
+    const artVariants = card.artVariants || [];
+    const currentArt = artVariants[artIndex] || { imageUrl: card.imageUrl, packName: card.packName };
+    
+    // Check if we came from a hero modal
+    const backToHeroHtml = parentHeroId ? `
+      <button id="back-to-hero-btn" class="mb-4 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-sm font-medium inline-flex items-center gap-2 transition-colors">
+        <span>←</span> Back to Hero
+      </button>
+    ` : '';
+    
+    // Build art switcher if there are multiple variants
+    let artSwitcherHtml = '';
+    if (artVariants.length > 1) {
+      artSwitcherHtml = `
+        <div class="flex flex-wrap gap-2 mt-3" id="art-toggles">
+          <span class="text-xs text-[var(--color-text-muted)] self-center mr-1">Art:</span>
+          ${artVariants.map((art: any, idx: number) => `
+            <button 
+              class="art-toggle px-2 py-1 rounded text-xs font-medium inline-flex items-center justify-center leading-none transition-all ${
+                idx === artIndex 
+                  ? 'bg-[var(--color-primary)] ring-2 ring-white/50' 
+                  : 'bg-white/10 hover:bg-white/20'
+              }"
+              data-art-index="${idx}"
+              title="${art.packName}"
+            >
+              ${art.packName?.replace(/^The /, '').substring(0, 15) || 'Art ' + (idx + 1)}
+            </button>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    // Build resource display (only one type per card)
+    let resourceHtml = '';
+    if (card.resourceEnergy) {
+      resourceHtml = `<div class="text-center p-3 bg-yellow-900/50 rounded-lg min-w-[60px]"><div class="text-2xl font-bold text-yellow-400">⚡ ${card.resourceEnergy}</div><div class="text-xs text-yellow-300">Energy</div></div>`;
+    } else if (card.resourceMental) {
+      resourceHtml = `<div class="text-center p-3 bg-blue-900/50 rounded-lg min-w-[60px]"><div class="text-2xl font-bold text-blue-400">🧪 ${card.resourceMental}</div><div class="text-xs text-blue-300">Mental</div></div>`;
+    } else if (card.resourcePhysical) {
+      resourceHtml = `<div class="text-center p-3 bg-red-900/50 rounded-lg min-w-[60px]"><div class="text-2xl font-bold text-red-400">👊 ${card.resourcePhysical}</div><div class="text-xs text-red-300">Physical</div></div>`;
+    } else if (card.resourceWild) {
+      resourceHtml = `<div class="text-center p-3 bg-green-900/50 rounded-lg min-w-[60px]"><div class="text-2xl font-bold text-green-400">🍃 ${card.resourceWild}</div><div class="text-xs text-green-300">Wild</div></div>`;
+    }
+
+    const statsHtml = `
+      <div class="flex flex-wrap gap-4 mb-4">
+        ${card.cost != null ? `
+          <div class="text-center p-3 bg-black/30 rounded-lg min-w-[60px]">
+            <div class="text-2xl font-bold text-purple-500">${card.cost}</div>
+            <div class="text-xs text-[var(--color-text-muted)]">Cost</div>
+          </div>
+        ` : ''}
+        ${card.attack != null ? `
+          <div class="text-center p-3 bg-black/30 rounded-lg min-w-[60px]">
+            <div class="text-2xl font-bold text-red-500">${card.attack}${'*'.repeat(card.attackConsequential || 0)}</div>
+            <div class="text-xs text-[var(--color-text-muted)]">ATK</div>
+          </div>
+        ` : ''}
+        ${card.thwart != null ? `
+          <div class="text-center p-3 bg-black/30 rounded-lg min-w-[60px]">
+            <div class="text-2xl font-bold text-blue-500">${card.thwart}${'*'.repeat(card.thwartConsequential || 0)}</div>
+            <div class="text-xs text-[var(--color-text-muted)]">THW</div>
+          </div>
+        ` : ''}
+        ${resourceHtml}
+      </div>
+    `;
+
+    const textHtml = card.text ? `
+      <div class="mb-4 p-4 bg-black/30 rounded-lg">
+        <div class="prose prose-invert prose-sm max-w-none">
+          ${formatCardText(card.text)}
+        </div>
+      </div>
+    ` : '';
+
+    modalContent.innerHTML = `
+      ${backToHeroHtml}
+      <div class="flex flex-col md:flex-row gap-6">
+        <div class="md:w-1/3 flex-shrink-0">
+          <div class="aspect-[63/88] relative rounded-lg overflow-hidden shadow-lg bg-black/50">
+            ${currentArt.imageUrl ? `
+              <img src="${currentArt.imageUrl}" alt="${card.name}" class="absolute inset-0 w-full h-full object-cover" id="modal-card-image" />
+            ` : `
+              <div class="absolute inset-0 flex items-center justify-center text-[var(--color-text-muted)]">
+                No Image
+              </div>
+            `}
+          </div>
+          ${artSwitcherHtml}
+        </div>
+        <div class="md:w-2/3">
+          <div class="mb-4">
+            <div class="flex items-center gap-3 mb-2">
+              <h2 class="text-2xl font-bold">${card.name}</h2>
+              ${card.health !== null ? `
+                <span class="px-3 py-1 bg-red-600 rounded-lg text-white font-bold text-lg">${card.health} HP</span>
+              ` : ''}
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="filter-pill px-3 pt-0.5 pb-1.5 rounded-full text-sm font-medium inline-flex items-center justify-center leading-none capitalize bg-white/20 cursor-pointer hover:ring-2 hover:ring-white/50" data-filter-type="${card.type}">${card.type}</span>
+                ${card.aspect ? `
+                  <span class="filter-pill px-3 pt-0.5 pb-1.5 rounded-full text-sm font-medium inline-flex items-center justify-center leading-none cursor-pointer hover:ring-2 hover:ring-white/50 ${getAspectColor(card.aspect)}" data-filter-aspect="${card.aspect}">
+                    ${card.aspect}
+                  </span>
+                ` : ''}
+              </div>
+            </div>
+            
+            <div class="flex flex-wrap gap-2 mb-4">
+              ${formatTraits(card.traits)}
+              ${card.isUnique ? `<span class="px-2 pt-0.5 pb-1.5 bg-yellow-600/50 rounded text-sm inline-flex items-center justify-center leading-none">Unique</span>` : ''}
+            </div>
+
+            ${statsHtml}
+            ${textHtml}
+            
+            <div class="flex flex-wrap gap-4 text-sm text-[var(--color-text-muted)]">
+              <div><strong>Quantity:</strong> ${card.quantity}</div>
+              ${card.deckLimit ? `<div><strong>Deck Limit:</strong> ${card.deckLimit}</div>` : ''}
+            </div>
+            <div class="text-sm text-[var(--color-text-muted)] mt-2">
+              <strong>${card.packs?.length > 1 ? 'Packs' : 'Pack'}:</strong> 
+              ${card.packs?.length > 1 
+                ? card.packs.map((p: any) => `<span class="filter-pill cursor-pointer hover:text-[var(--color-primary)] underline" data-filter-pack="${p.name}">${p.name}</span>`).join(', ') 
+                : `<span class="filter-pill cursor-pointer hover:text-[var(--color-primary)] underline" data-filter-pack="${card.packName}">${card.packName}</span>`}
+            </div>
+          </div>
+        </div>
+      `;
+      
+      // Add click handlers for filter pills
+      addFilterPillListeners();
+
+      // Add back to hero button listener
+      const backBtn = modalContent.querySelector('#back-to-hero-btn');
+      backBtn?.addEventListener('click', () => {
+        if (parentHeroId) {
+          const heroCard = allCardsData.find((c: any) => c.id === parentHeroId);
+          if (heroCard) {
+            currentCardId = parentHeroId;
+            parentHeroId = null;
+            renderHeroModal(heroCard, 0);
+          }
+        }
+      });
+      
+      // Add art toggle handlers
+      const artToggleButtons = modalContent.querySelectorAll('.art-toggle');
+      artToggleButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt((btn as HTMLElement).dataset.artIndex || '0');
+          currentArtIndex = idx;
+          if (currentCardId) {
+            const c = allCardsData.find((x: any) => x.id === currentCardId);
+            if (c) renderDeckCardModal(c, idx);
+          }
+        });
+      });
+  }
+
+  function addFilterPillListeners() {
+    const filterPills = modalContent?.querySelectorAll('.filter-pill');
+    filterPills?.forEach(pill => {
+      pill.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const el = pill as HTMLElement;
+        
+        // Handle type filter
+        if (el.dataset.filterType) {
+          const type = el.dataset.filterType;
+          typeFilters.forEach(btn => {
+            btn.classList.remove('active', 'bg-[var(--color-primary)]');
+            btn.classList.add('bg-white/10');
+            if ((btn as HTMLElement).dataset.type === type) {
+              btn.classList.add('active', 'bg-[var(--color-primary)]');
+              btn.classList.remove('bg-white/10');
+            }
+          });
+          selectedType = type;
+          closeModal();
+          filterCards();
+        }
+        
+        // Handle aspect filter
+        if (el.dataset.filterAspect) {
+          const aspect = el.dataset.filterAspect;
+          aspectFilters.forEach(btn => {
+            btn.classList.remove('active');
+            const btnAspect = (btn as HTMLElement).dataset.aspect;
+            if (btnAspect === 'all') {
+              btn.classList.remove('bg-[var(--color-primary)]');
+              btn.classList.add('bg-white/10');
+            } else if (btnAspect && aspectColorMap[btnAspect]) {
+              // Reset to muted
+              btn.classList.remove(aspectColorMap[btnAspect].full);
+              btn.classList.add(aspectColorMap[btnAspect].muted);
+            }
+            if (btnAspect === aspect) {
+              btn.classList.add('active');
+              if (btnAspect && aspectColorMap[btnAspect]) {
+                btn.classList.remove(aspectColorMap[btnAspect].muted);
+                btn.classList.add(aspectColorMap[btnAspect].full);
+              }
+            }
+          });
+          selectedAspect = aspect;
+          closeModal();
+          filterCards();
+        }
+        
+        // Handle pack filter
+        if (el.dataset.filterPack) {
+          const packName = el.dataset.filterPack;
+          // Uncheck all packs, then check only the selected one
+          packFilters.forEach(cb => {
+            const checkbox = cb as HTMLInputElement;
+            checkbox.checked = checkbox.value === packName;
+          });
+          closeModal();
+          filterCards();
+        }
+      });
+    });
+  }
+
+  function closeModal() {
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    document.body.style.overflow = '';
+  }
+
+  // Card click listeners
+  cardItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const cardId = (item as HTMLElement).dataset.id;
+      if (cardId) {
+        parentHeroId = null; // Clear parent hero when opening from main grid
+        openModal(cardId);
+      }
+    });
+  });
+
+  // Close modal listeners
+  modalClose?.addEventListener('click', closeModal);
+  modal?.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+  });
+</script>

@@ -1,0 +1,66 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getUser } from '../lib/auth';
+
+const user = await getUser(Astro);
+---
+
+<Layout title="Home">
+  <div class="flex flex-col items-center justify-center py-16 text-center">
+    <h1 class="mb-4 text-5xl font-bold">
+      <span class="text-[var(--color-primary)]">Marvel Champions</span>
+      <br />
+      AI Deck Builder
+    </h1>
+    <p class="mb-8 max-w-xl text-lg text-[var(--color-text-muted)]">
+      Build optimized decks for 1-4 players with AI-powered recommendations.
+      Share collections with friends and let Claude help you assemble your team.
+    </p>
+    <div class="flex gap-4">
+      {user ? (
+        <>
+          <a
+            href="/builder"
+            class="rounded-lg bg-[var(--color-primary)] px-6 py-3 font-semibold hover:opacity-90"
+          >
+            Start Building
+          </a>
+          <a
+            href="/sessions/new"
+            class="rounded-lg border border-[var(--color-secondary)] px-6 py-3 font-semibold text-[var(--color-secondary)] hover:bg-[var(--color-secondary)]/10"
+          >
+            New Session
+          </a>
+        </>
+      ) : (
+        <a
+          href="/api/auth/signin"
+          class="rounded-lg bg-[var(--color-primary)] px-6 py-3 font-semibold hover:opacity-90"
+        >
+          Sign In to Get Started
+        </a>
+      )}
+    </div>
+  </div>
+
+  <section class="mt-16 grid gap-8 md:grid-cols-3">
+    <div class="rounded-lg bg-[var(--color-surface)] p-6">
+      <h3 class="mb-2 text-xl font-semibold text-[var(--color-primary)]">AI-Powered</h3>
+      <p class="text-[var(--color-text-muted)]">
+        Claude AI knows the rules, cards, and meta. Get smart deck suggestions based on your hero, aspect, and playstyle.
+      </p>
+    </div>
+    <div class="rounded-lg bg-[var(--color-surface)] p-6">
+      <h3 class="mb-2 text-xl font-semibold text-[var(--color-secondary)]">Multiplayer Sessions</h3>
+      <p class="text-[var(--color-text-muted)]">
+        Create sessions for 1-4 players. Share collections, pick unique heroes, and build synergistic decks together.
+      </p>
+    </div>
+    <div class="rounded-lg bg-[var(--color-surface)] p-6">
+      <h3 class="mb-2 text-xl font-semibold text-green-500">Collection Aware</h3>
+      <p class="text-[var(--color-text-muted)]">
+        Track your owned packs. The AI only suggests cards you actually have access to.
+      </p>
+    </div>
+  </section>
+</Layout>
