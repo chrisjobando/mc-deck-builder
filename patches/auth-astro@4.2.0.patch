@@ -1,0 +1,13 @@
+diff --git a/src/integration.ts b/src/integration.ts
+index 04262ae25340225eea317e0b3dc77a9b7c9f6e9e..67a7a26dcdf9e38a569a6516b5763ea6d625d4df 100644
+--- a/src/integration.ts	
++++ b/src/integration.ts	
+@@ -34,7 +34,7 @@ export default (config: AstroAuthConfig = {}): AstroIntegration => ({
+ 				logger.error('No Adapter found, please make sure you provide one in your Astro config')
+ 			}
+ 			const edge = ['@astrojs/vercel/edge', '@astrojs/cloudflare'].includes(
+-				astroConfig.adapter.name
++				astroConfig.adapter?.name ?? ''
+ 			)
+ 
+ 			if (

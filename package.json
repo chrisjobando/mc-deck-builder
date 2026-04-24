@@ -10,7 +10,11 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "db:sync": "node scripts/sync-cards.mjs"
+    "db:sync": "tsx scripts/sync-cards.ts",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.71",
@@ -19,7 +23,7 @@
     "@auth/core": "^0.37.4",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
-"@tailwindcss/vite": "^4.2.4",
+    "@tailwindcss/vite": "^4.2.4",
     "ai": "^6.0.168",
     "astro": "^6.1.9",
     "auth-astro": "^4.2.0",
@@ -31,9 +35,21 @@
     "tailwindcss": "^4.2.4"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.6.0",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@types/set-cookie-parser": "^2.4.10",
     "dotenv": "^17.4.2",
-    "typescript": "^6.0.3"
+    "eslint": "^10.2.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-astro": "^1.7.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "prettier": "^3.8.3",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.0"
   }
 }
