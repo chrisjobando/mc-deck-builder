@@ -10,6 +10,18 @@
   --color-text-muted: #a1a1a1;
 }
 
+/* Player side scheme card rotation (landscape card in portrait grid) */
+.pss-img {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(88 / 63 * 100%);
+  max-width: none;
+  aspect-ratio: 88 / 63;
+  object-fit: cover;
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+
 /* Base styles */
 body {
   background-color: var(--color-background);

@@ -277,6 +277,7 @@ async function syncCards() {
       health: card.health || null,
       heroId,
       imageUrl: card.imagesrc || null,
+      isPermanent: card.permanent || false,
       isUnique: card.is_unique || false,
       packCode: card.pack_code,
       packName: card.pack_name,
@@ -302,7 +303,7 @@ async function syncCards() {
     await sql`
       INSERT INTO deck_cards (
         id, name, aspect, attack, attack_consequential, cost, deck_limit,
-        health, hero_id, image_url, is_unique, pack_code, pack_name, quantity,
+        health, hero_id, image_url, is_permanent, is_unique, pack_code, pack_name, quantity,
         resource_energy, resource_mental, resource_physical, resource_wild,
         data_hash, synced_at, text, thwart, thwart_consequential, traits, type
       ) VALUES (
@@ -316,6 +317,7 @@ async function syncCards() {
         ${card.health || null},
         ${heroId},
         ${card.imagesrc ? MARVELCDB_BASE + card.imagesrc : null},
+        ${card.permanent || false},
         ${card.is_unique || false},
         ${card.pack_code},
         ${card.pack_name},
@@ -342,6 +344,7 @@ async function syncCards() {
         health = EXCLUDED.health,
         hero_id = EXCLUDED.hero_id,
         image_url = EXCLUDED.image_url,
+        is_permanent = EXCLUDED.is_permanent,
         is_unique = EXCLUDED.is_unique,
         pack_code = EXCLUDED.pack_code,
         pack_name = EXCLUDED.pack_name,

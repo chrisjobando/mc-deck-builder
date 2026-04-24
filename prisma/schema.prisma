@@ -124,6 +124,7 @@ model DeckCard {
   traits              String?
   text                String?
   imageUrl            String?  @map("image_url")
+  isPermanent         Boolean  @default(false) @map("is_permanent")
   isUnique            Boolean  @default(false) @map("is_unique")
   deckLimit           Int      @default(3) @map("deck_limit")
   quantity            Int      @default(1)

@@ -30,8 +30,8 @@ const allPacks = [...new Set([
 // Consolidate deck cards that appear in multiple packs (group by name + text)
 const cardsByKey = new Map<string, DeckCard[]>();
 for (const card of cards) {
-  // Use name + text as the deduplication key (handles same-name different cards)
-  const key = `${card.name}|||${card.text || ''}`;
+  // Hero-specific cards with the same name/text but different owners must stay separate
+  const key = `${card.name}|||${card.text || ''}|||${card.heroId || ''}`;
   if (!cardsByKey.has(key)) {
     cardsByKey.set(key, []);
   }
@@ -122,6 +122,7 @@ const allCards = [
       traits: c.traits,
       text: c.text,
       deckLimit: c.deckLimit,
+      isPermanent: c.isPermanent,
       isUnique: c.isUnique,
       heroId: c.heroId,
       heroName: c.heroId ? heroNameById.get(c.heroId) || null : null,
@@ -137,8 +138,38 @@ const allCards = [
 // Split cards - displayCards excludes hero-specific, allCards includes all for modal
 const displayCards = allCards.filter(c => !c.heroId);
 
+// Build a lookup of heroId → lowercased names of their hero-specific cards (for search)
+const heroSpecificNamesByHeroId = new Map<string, string>();
+for (const card of allCards) {
+  if (card.heroId) {
+    const existing = heroSpecificNamesByHeroId.get(card.heroId) || '';
+    heroSpecificNamesByHeroId.set(card.heroId, existing ? `${existing}|||${card.name.toLowerCase()}` : card.name.toLowerCase());
+  }
+}
+
 // JSON for client-side modal
 const cardsJson = JSON.stringify(allCards);
+
+const TYPE_FILTERS = [
+  { value: 'all', label: 'All' },
+  { value: 'hero', label: 'Heroes' },
+  { value: 'ally', label: 'Allies' },
+  { value: 'event', label: 'Events' },
+  { value: 'resource', label: 'Resources' },
+  { value: 'support', label: 'Supports' },
+  { value: 'upgrade', label: 'Upgrades' },
+  { value: 'player_side_scheme', label: 'Player Side Schemes' },
+];
+
+const ASPECT_FILTERS = [
+  { value: 'all',        label: 'All Aspects', color: 'bg-[var(--color-primary)]', hover: '' },
+  { value: 'Basic',      label: 'Basic',       color: 'bg-gray-600/50',  hover: 'hover:bg-gray-600' },
+  { value: 'Aggression', label: 'Aggression',  color: 'bg-red-600/50',   hover: 'hover:bg-red-600' },
+  { value: 'Justice',    label: 'Justice',     color: 'bg-yellow-600/50',hover: 'hover:bg-yellow-600' },
+  { value: 'Leadership', label: 'Leadership',  color: 'bg-blue-600/50',  hover: 'hover:bg-blue-600' },
+  { value: 'Pool',       label: 'Pool',        color: 'bg-pink-600/50',  hover: 'hover:bg-pink-600' },
+  { value: 'Protection', label: 'Protection',  color: 'bg-green-600/50', hover: 'hover:bg-green-600' },
+];
 ---
 
 <Layout title="Browse Cards">
@@ -182,52 +213,26 @@ const cardsJson = JSON.stringify(allCards);
 
     <!-- Type Filter -->
     <div class="flex flex-wrap gap-2 mb-6">
-      <button class="type-filter active px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-[var(--color-primary)]" data-type="all">
-        All
-      </button>
-      <button class="type-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-white/10 hover:bg-white/20" data-type="hero">
-        Heroes
-      </button>
-      <button class="type-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-white/10 hover:bg-white/20" data-type="ally">
-        Allies
-      </button>
-      <button class="type-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-white/10 hover:bg-white/20" data-type="event">
-        Events
-      </button>
-      <button class="type-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-white/10 hover:bg-white/20" data-type="resource">
-        Resources
-      </button>
-      <button class="type-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-white/10 hover:bg-white/20" data-type="support">
-        Supports
-      </button>
-      <button class="type-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-white/10 hover:bg-white/20" data-type="upgrade">
-        Upgrades
-      </button>
+      {TYPE_FILTERS.map(({ value, label }) => (
+        <button
+          class={`type-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none ${value === 'all' ? 'active bg-[var(--color-primary)]' : 'bg-white/10 hover:bg-white/20'}`}
+          data-type={value}
+        >
+          {label}
+        </button>
+      ))}
     </div>
 
     <!-- Aspect Filter -->
     <div class="flex flex-wrap gap-2 mb-6">
-      <button class="aspect-filter active px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-[var(--color-primary)]" data-aspect="all">
-        All Aspects
-      </button>
-      <button class="aspect-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-gray-600/50 hover:bg-gray-600" data-aspect="Basic">
-        Basic
-      </button>
-      <button class="aspect-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-red-600/50 hover:bg-red-600" data-aspect="Aggression">
-        Aggression
-      </button>
-      <button class="aspect-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-yellow-600/50 hover:bg-yellow-600" data-aspect="Justice">
-        Justice
-      </button>
-      <button class="aspect-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-blue-600/50 hover:bg-blue-600" data-aspect="Leadership">
-        Leadership
-      </button>
-      <button class="aspect-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-pink-600/50 hover:bg-pink-600" data-aspect="Pool">
-        Pool
-      </button>
-      <button class="aspect-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none bg-green-600/50 hover:bg-green-600" data-aspect="Protection">
-        Protection
-      </button>
+      {ASPECT_FILTERS.map(({ value, label, color, hover }) => (
+        <button
+          class={`aspect-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none ${value === 'all' ? 'active' : ''} ${color} ${hover}`}
+          data-aspect={value}
+        >
+          {label}
+        </button>
+      ))}
     </div>
 
     <!-- Search -->
@@ -241,7 +246,7 @@ const cardsJson = JSON.stringify(allCards);
 
   <!-- Card count -->
   <p class="text-[var(--color-text-muted)] mb-4" id="card-count">
-    Showing {allCards.length} cards
+    Showing {displayCards.length} cards
   </p>
 
   <!-- Card Grid -->
@@ -254,16 +259,26 @@ const cardsJson = JSON.stringify(allCards);
         data-type={card.type}
         data-aspect={card.aspect || ''}
         data-name={card.name.toLowerCase()}
+        data-hero-cards={card.type === 'hero' ? (heroSpecificNamesByHeroId.get(card.id) || '') : ''}
         data-id={card.id}
       >
-        <div class="aspect-[63/88] bg-black/50 relative">
+        <div class="aspect-[63/88] bg-black/50 relative overflow-hidden">
           {card.imageUrl ? (
-            <img 
-              src={card.imageUrl} 
-              alt={card.name}
-              class="w-full h-full object-cover"
-              loading="lazy"
-            />
+            card.type === 'player_side_scheme' ? (
+              <img
+                src={card.imageUrl}
+                alt={card.name}
+                class="pss-img"
+                loading="lazy"
+              />
+            ) : (
+              <img
+                src={card.imageUrl}
+                alt={card.name}
+                class="w-full h-full object-cover"
+                loading="lazy"
+              />
+            )
           ) : (
             <div class="w-full h-full flex items-center justify-center text-[var(--color-text-muted)]">
               No Image
@@ -313,9 +328,7 @@ const cardsJson = JSON.stringify(allCards);
   </div>
 </Layout>
 
-<script define:vars={{ cardsJson }}>
-  window.allCardsData = JSON.parse(cardsJson);
-</script>
+<div id="cards-data" data-cards={cardsJson} class="hidden"></div>
 
 <script>
   const cardItems = document.querySelectorAll('.card-item');
@@ -330,8 +343,15 @@ const cardsJson = JSON.stringify(allCards);
   const modalContent = document.getElementById('modal-content');
   const modalClose = document.getElementById('modal-close');
 
-  // Get cards data from server
-  const allCardsData = (window as any).allCardsData as any[];
+  const allCardsData = JSON.parse(
+    (document.getElementById('cards-data') as HTMLElement).dataset.cards ?? '[]'
+  ) as any[];
+
+  // Cache parsed packs for each card element to avoid repeated JSON.parse in filterCards
+  const cardPacksCache = new Map<Element, string[]>();
+  cardItems.forEach(item => {
+    cardPacksCache.set(item, JSON.parse((item as HTMLElement).dataset.packs || '[]'));
+  });
 
   let selectedType = 'all';
   let selectedAspect = 'all';
@@ -364,18 +384,20 @@ const cardsJson = JSON.stringify(allCards);
     cardItems.forEach(item => {
       const el = item as HTMLElement;
       const pack = el.dataset.pack || '';
-      const packs = JSON.parse(el.dataset.packs || '[]') as string[];
+      const packs = cardPacksCache.get(el) ?? [];
       const type = el.dataset.type || '';
       const aspect = el.dataset.aspect || '';
       const name = el.dataset.name || '';
+      const heroCards = el.dataset.heroCards || '';
 
       // Check if any of the card's packs match selected packs
-      const packMatch = packs.length > 0 
+      const packMatch = packs.length > 0
         ? packs.some(p => selectedPacks.has(p))
         : selectedPacks.has(pack);
       const typeMatch = selectedType === 'all' || type === selectedType;
-      const aspectMatch = selectedAspect === 'all' || aspect === selectedAspect || (selectedAspect === 'all' && type === 'hero');
-      const searchMatch = searchQuery === '' || name.includes(searchQuery.toLowerCase());
+      const aspectMatch = selectedAspect === 'all' || aspect === selectedAspect;
+      const q = searchQuery.toLowerCase();
+      const searchMatch = q === '' || name.includes(q) || (heroCards && heroCards.split('|||').some(n => n.includes(q)));
 
       if (packMatch && typeMatch && aspectMatch && searchMatch) {
         el.style.display = '';
@@ -457,16 +479,12 @@ const cardsJson = JSON.stringify(allCards);
   });
 
   // Modal functions
+  function formatType(type: string): string {
+    return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
+
   function getAspectColor(aspect: string | null): string {
-    switch (aspect) {
-      case 'Aggression': return 'bg-red-600';
-      case 'Justice': return 'bg-yellow-600';
-      case 'Leadership': return 'bg-blue-600';
-      case 'Protection': return 'bg-green-600';
-      case 'Pool': return 'bg-pink-600';
-      case 'Basic': return 'bg-gray-600';
-      default: return 'bg-gray-600';
-    }
+    return aspectColorMap[aspect ?? '']?.full ?? 'bg-gray-600';
   }
 
   function getIdentityLabel(identityType: string): string {
@@ -496,20 +514,30 @@ const cardsJson = JSON.stringify(allCards);
     // Split by ". " or just "." at the end, filter empty strings
     const traitList = traits.split(/\.\s*/).filter(t => t.trim());
     return traitList.map(t => 
-      `<span class="px-2 pt-1 pb-1.5 bg-white/10 rounded text-sm">${t.trim()}</span>`
+      `<span class="px-2 pt-0.5 pb-1.5 bg-white/10 rounded text-sm">${t.trim()}</span>`
     ).join('');
   }
 
   let currentCardId: string | null = null;
   let currentIdentityIndex = 0;
   let currentArtIndex = 0; // Track current art variant for deck cards
-  let parentHeroId: string | null = null; // Track hero when viewing hero-specific card
+  let parentHeroId: string | null = null;
+  let parentPage: 'hero-cards' | null = null;
 
   function renderHeroModal(card: any, identityIndex: number) {
     if (!modalContent) return;
-    
-    const identities = card.identities || [];
+
+    // Sort so alter ego is always last in the switcher
+    const identities = [...(card.identities || [])].sort((a: any, b: any) => {
+      if (a.identityType === 'alter_ego') return 1;
+      if (b.identityType === 'alter_ego') return -1;
+      return 0;
+    });
     const identity = identities[identityIndex] || identities[0];
+
+    // Known landscape-oriented identity cards
+    const LANDSCAPE_IDENTITIES = new Set(['Archangel']);
+    const isLandscapeIdentity = LANDSCAPE_IDENTITIES.has(identity?.name);
     
     // Build identity toggle buttons
     let identityToggleHtml = '';
@@ -536,12 +564,12 @@ const cardsJson = JSON.stringify(allCards);
     const statsHtml = `
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <div class="text-center p-3 bg-black/30 rounded-lg">
-          <div class="text-2xl font-bold text-red-500">${identity?.attack ?? '-'}</div>
-          <div class="text-xs text-[var(--color-text-muted)]">ATK</div>
-        </div>
-        <div class="text-center p-3 bg-black/30 rounded-lg">
           <div class="text-2xl font-bold text-blue-500">${identity?.thwart ?? '-'}</div>
           <div class="text-xs text-[var(--color-text-muted)]">THW</div>
+        </div>
+        <div class="text-center p-3 bg-black/30 rounded-lg">
+          <div class="text-2xl font-bold text-red-500">${identity?.attack ?? '-'}</div>
+          <div class="text-xs text-[var(--color-text-muted)]">ATK</div>
         </div>
         <div class="text-center p-3 bg-black/30 rounded-lg">
           <div class="text-2xl font-bold text-green-500">${identity?.defense ?? '-'}</div>
@@ -554,12 +582,12 @@ const cardsJson = JSON.stringify(allCards);
       </div>
       <div class="grid grid-cols-2 gap-4 mb-4">
         <div class="p-3 bg-black/30 rounded-lg">
-          <span class="text-[var(--color-text-muted)]">Health:</span> 
-          <span class="font-bold">${card.health ?? '-'}</span>
-        </div>
-        <div class="p-3 bg-black/30 rounded-lg">
           <span class="text-[var(--color-text-muted)]">Hand Size:</span> 
           <span class="font-bold">${identity?.handSize ?? '-'}</span>
+        </div>
+        <div class="p-3 bg-black/30 rounded-lg">
+          <span class="text-[var(--color-text-muted)]">Health:</span> 
+          <span class="font-bold">${card.health ?? '-'}</span>
         </div>
       </div>
     `;
@@ -574,28 +602,16 @@ const cardsJson = JSON.stringify(allCards);
 
     // Find hero-specific cards for this hero
     const heroSpecificCards = allCardsData.filter((c: any) => c.heroId === card.id);
+    const heroCardCount = heroSpecificCards.reduce((sum: number, c: any) => sum + (c.quantity || 1), 0);
     const heroSpecificCardsHtml = heroSpecificCards.length > 0 ? `
       <div class="mt-6 pt-6 border-t border-white/10">
-        <h3 class="text-lg font-semibold mb-4">Hero-Specific Cards (${heroSpecificCards.length})</h3>
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          ${heroSpecificCards.map((c: any) => `
-            <div class="hero-specific-card bg-black/30 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-[var(--color-primary)]" data-card-id="${c.id}">
-              <div class="aspect-[63/88] relative">
-                ${c.imageUrl ? `
-                  <img src="${c.imageUrl}" alt="${c.name}" class="w-full h-full object-cover" loading="lazy" />
-                ` : `
-                  <div class="w-full h-full flex items-center justify-center text-[var(--color-text-muted)] text-xs">No Image</div>
-                `}
-                ${c.quantity > 1 ? `
-                  <span class="absolute top-1 right-1 bg-black/80 text-white text-xs px-1.5 py-0.5 rounded">x${c.quantity}</span>
-                ` : ''}
-              </div>
-              <div class="p-2">
-                <p class="text-xs font-medium truncate" title="${c.name}">${c.name}</p>
-              </div>
-            </div>
-          `).join('')}
-        </div>
+        <button id="view-hero-cards-btn" class="flex items-center justify-between w-full px-4 py-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors group">
+          <span class="font-semibold">Hero-Specific Cards</span>
+          <span class="flex items-center gap-2 text-[var(--color-text-muted)]">
+            <span class="text-sm">${heroCardCount} cards</span>
+            <span class="group-hover:translate-x-0.5 transition-transform">→</span>
+          </span>
+        </button>
       </div>
     ` : '';
 
@@ -604,8 +620,8 @@ const cardsJson = JSON.stringify(allCards);
 
     modalContent.innerHTML = `
       <div class="flex flex-col md:flex-row gap-6">
-        <div class="md:w-1/3 flex-shrink-0">
-          <div class="aspect-[63/88] relative rounded-lg overflow-hidden shadow-lg bg-black/50">
+        <div class="${isLandscapeIdentity ? 'md:w-1/2' : 'md:w-1/3'} flex-shrink-0">
+          <div class="${isLandscapeIdentity ? 'aspect-[88/63]' : 'aspect-[63/88]'} relative rounded-lg overflow-hidden shadow-lg bg-black/50">
             ${imageUrl ? `
               <img src="${imageUrl}" alt="${displayName}" class="absolute inset-0 w-full h-full object-cover" id="modal-image" />
             ` : `
@@ -615,7 +631,7 @@ const cardsJson = JSON.stringify(allCards);
             `}
           </div>
         </div>
-        <div class="md:w-2/3">
+        <div class="${isLandscapeIdentity ? 'md:w-1/2' : 'md:w-2/3'}">
           <div class="mb-4">
             <h2 class="text-2xl font-bold mb-2" id="modal-name">${displayName}</h2>
             <div class="flex flex-wrap items-center gap-2">
@@ -625,24 +641,24 @@ const cardsJson = JSON.stringify(allCards);
               ` : ''}
             </div>
           </div>
-          
+
           ${identityToggleHtml}
-          
+
           <div class="flex flex-wrap gap-2 mb-4">
             ${formatTraits(identity?.traits)}
           </div>
 
           ${statsHtml}
           ${textHtml}
-          
+
           <div class="flex flex-wrap gap-4 text-sm text-[var(--color-text-muted)]">
-            <div><strong>${card.packs?.length > 1 ? 'Packs' : 'Pack'}:</strong> 
-              ${card.packs?.length > 1 
-                ? card.packs.map((p: any) => `<span class="filter-pill cursor-pointer hover:text-[var(--color-primary)] underline" data-filter-pack="${p.name}">${p.name}</span>`).join(', ') 
+            <div><strong>${card.packs?.length > 1 ? 'Packs' : 'Pack'}:</strong>
+              ${card.packs?.length > 1
+                ? card.packs.map((p: any) => `<span class="filter-pill cursor-pointer hover:text-[var(--color-primary)] underline" data-filter-pack="${p.name}">${p.name}</span>`).join(', ')
                 : `<span class="filter-pill cursor-pointer hover:text-[var(--color-primary)] underline" data-filter-pack="${card.packName}">${card.packName}</span>`}
             </div>
           </div>
-          
+
           ${heroSpecificCardsHtml}
         </div>
       </div>
@@ -663,14 +679,61 @@ const cardsJson = JSON.stringify(allCards);
     
     // Add click handlers for filter pills
     addFilterPillListeners();
-    
-    // Add click handlers for hero-specific cards
-    const heroSpecificCardEls = modalContent.querySelectorAll('.hero-specific-card');
-    heroSpecificCardEls.forEach(el => {
+
+    // View hero cards page button
+    const viewHeroCardsBtn = modalContent.querySelector('#view-hero-cards-btn');
+    viewHeroCardsBtn?.addEventListener('click', () => {
+      renderHeroCardsPage(card);
+    });
+  }
+
+  function renderHeroCardsPage(heroCard: any) {
+    if (!modalContent) return;
+
+    const heroSpecificCards = allCardsData
+      .filter((c: any) => c.heroId === heroCard.id)
+      .sort((a: any, b: any) => (a.isPermanent ? 0 : 1) - (b.isPermanent ? 0 : 1));
+    const totalCount = heroSpecificCards.reduce((sum: number, c: any) => sum + (c.quantity || 1), 0);
+
+    modalContent.innerHTML = `
+      <div>
+        <button id="back-to-hero-btn" class="mb-6 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-sm font-medium inline-flex items-center gap-2 transition-colors">
+          <span>←</span> Back to ${heroCard.name}
+        </button>
+        <h2 class="text-2xl font-bold mb-1">${heroCard.name}</h2>
+        <p class="text-[var(--color-text-muted)] mb-6">${totalCount} hero-specific cards</p>
+        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
+          ${heroSpecificCards.map((c: any) => `
+            <div class="hero-card-item bg-[var(--color-surface)] rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-[var(--color-primary)]" data-card-id="${c.id}">
+              <div class="aspect-[63/88] relative">
+                ${c.imageUrl ? `
+                  <img src="${c.imageUrl}" alt="${c.name}" class="w-full h-full object-cover" loading="lazy" />
+                ` : `
+                  <div class="w-full h-full flex items-center justify-center text-[var(--color-text-muted)] text-xs">No Image</div>
+                `}
+                ${c.quantity > 1 ? `
+                  <span class="absolute top-1 right-1 bg-black/80 text-white text-xs px-1.5 py-0.5 rounded">x${c.quantity}</span>
+                ` : ''}
+              </div>
+              <div class="p-2">
+                <p class="text-sm font-medium truncate" title="${c.name}">${c.name}</p>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+
+    const backBtn = modalContent.querySelector('#back-to-hero-btn');
+    backBtn?.addEventListener('click', () => renderHeroModal(heroCard, 0));
+
+    const cardEls = modalContent.querySelectorAll('.hero-card-item');
+    cardEls.forEach(el => {
       el.addEventListener('click', () => {
         const cardId = (el as HTMLElement).dataset.cardId;
         if (cardId) {
-          parentHeroId = currentCardId; // Remember which hero we came from
+          parentHeroId = heroCard.id;
+          parentPage = 'hero-cards';
           openModal(cardId);
         }
       });
@@ -687,7 +750,8 @@ const cardsJson = JSON.stringify(allCards);
     const isHero = card.type === 'hero';
     
     if (isHero) {
-      parentHeroId = null; // Clear parent hero when viewing a hero directly
+      parentHeroId = null;
+      parentPage = null;
       renderHeroModal(card, 0);
     } else {
       // Deck card
@@ -705,11 +769,13 @@ const cardsJson = JSON.stringify(allCards);
     
     const artVariants = card.artVariants || [];
     const currentArt = artVariants[artIndex] || { imageUrl: card.imageUrl, packName: card.packName };
+    const isPlayerSideScheme = card.type === 'player_side_scheme';
     
     // Check if we came from a hero modal
-    const backToHeroHtml = parentHeroId ? `
+    const parentHero = parentHeroId ? allCardsData.find((c: any) => c.id === parentHeroId) : null;
+    const backToHeroHtml = parentHero ? `
       <button id="back-to-hero-btn" class="mb-4 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-sm font-medium inline-flex items-center gap-2 transition-colors">
-        <span>←</span> Back to Hero
+        <span>←</span> Back to ${parentHero.name}'s cards
       </button>
     ` : '';
     
@@ -750,22 +816,20 @@ const cardsJson = JSON.stringify(allCards);
 
     const statsHtml = `
       <div class="flex flex-wrap gap-4 mb-4">
-        ${card.cost != null ? `
           <div class="text-center p-3 bg-black/30 rounded-lg min-w-[60px]">
-            <div class="text-2xl font-bold text-purple-500">${card.cost}</div>
+            <div class="text-2xl font-bold text-purple-500">${card.cost ?? '-'}</div>
             <div class="text-xs text-[var(--color-text-muted)]">Cost</div>
+          </div>
+        ${card.thwart != null ? `
+          <div class="text-center p-3 bg-black/30 rounded-lg min-w-[60px]">
+            <div class="text-2xl font-bold text-blue-500">${card.thwart}${'*'.repeat(card.thwartConsequential || 0)}</div>
+            <div class="text-xs text-[var(--color-text-muted)]">THW</div>
           </div>
         ` : ''}
         ${card.attack != null ? `
           <div class="text-center p-3 bg-black/30 rounded-lg min-w-[60px]">
             <div class="text-2xl font-bold text-red-500">${card.attack}${'*'.repeat(card.attackConsequential || 0)}</div>
             <div class="text-xs text-[var(--color-text-muted)]">ATK</div>
-          </div>
-        ` : ''}
-        ${card.thwart != null ? `
-          <div class="text-center p-3 bg-black/30 rounded-lg min-w-[60px]">
-            <div class="text-2xl font-bold text-blue-500">${card.thwart}${'*'.repeat(card.thwartConsequential || 0)}</div>
-            <div class="text-xs text-[var(--color-text-muted)]">THW</div>
           </div>
         ` : ''}
         ${resourceHtml}
@@ -782,9 +846,9 @@ const cardsJson = JSON.stringify(allCards);
 
     modalContent.innerHTML = `
       ${backToHeroHtml}
-      <div class="flex flex-col md:flex-row gap-6">
-        <div class="md:w-1/3 flex-shrink-0">
-          <div class="aspect-[63/88] relative rounded-lg overflow-hidden shadow-lg bg-black/50">
+      <div class="flex flex-col md:flex-row gap-6 ${isPlayerSideScheme ? 'md:items-center' : ''}">
+        <div class="${isPlayerSideScheme ? 'md:w-1/2' : 'md:w-1/3'} flex-shrink-0">
+          <div class="${isPlayerSideScheme ? 'aspect-[88/63]' : 'aspect-[63/88]'} relative rounded-lg overflow-hidden shadow-lg bg-black/50">
             ${currentArt.imageUrl ? `
               <img src="${currentArt.imageUrl}" alt="${card.name}" class="absolute inset-0 w-full h-full object-cover" id="modal-card-image" />
             ` : `
@@ -795,7 +859,7 @@ const cardsJson = JSON.stringify(allCards);
           </div>
           ${artSwitcherHtml}
         </div>
-        <div class="md:w-2/3">
+        <div class="${isPlayerSideScheme ? 'md:w-1/2' : 'md:w-2/3'}">
           <div class="mb-4">
             <div class="flex items-center gap-3 mb-2">
               <h2 class="text-2xl font-bold">${card.name}</h2>
@@ -804,10 +868,15 @@ const cardsJson = JSON.stringify(allCards);
               ` : ''}
               </div>
               <div class="flex flex-wrap items-center gap-2">
-                <span class="filter-pill px-3 pt-0.5 pb-1.5 rounded-full text-sm font-medium inline-flex items-center justify-center leading-none capitalize bg-white/20 cursor-pointer hover:ring-2 hover:ring-white/50" data-filter-type="${card.type}">${card.type}</span>
+                <span class="filter-pill px-3 pt-0.5 pb-1.5 rounded-full text-sm font-medium inline-flex items-center justify-center leading-none bg-white/20 cursor-pointer hover:ring-2 hover:ring-white/50" data-filter-type="${card.type}">${formatType(card.type)}</span>
                 ${card.aspect ? `
                   <span class="filter-pill px-3 pt-0.5 pb-1.5 rounded-full text-sm font-medium inline-flex items-center justify-center leading-none cursor-pointer hover:ring-2 hover:ring-white/50 ${getAspectColor(card.aspect)}" data-filter-aspect="${card.aspect}">
                     ${card.aspect}
+                  </span>
+                ` : ''}
+                ${card.heroName ? `
+                  <span class="px-3 pt-0.5 pb-1.5 rounded-full text-sm font-medium inline-flex items-center justify-center leading-none bg-purple-600/50">
+                    ${card.heroName} Only
                   </span>
                 ` : ''}
               </div>
@@ -845,8 +914,14 @@ const cardsJson = JSON.stringify(allCards);
           const heroCard = allCardsData.find((c: any) => c.id === parentHeroId);
           if (heroCard) {
             currentCardId = parentHeroId;
+            const fromPage = parentPage;
             parentHeroId = null;
-            renderHeroModal(heroCard, 0);
+            parentPage = null;
+            if (fromPage === 'hero-cards') {
+              renderHeroCardsPage(heroCard);
+            } else {
+              renderHeroModal(heroCard, 0);
+            }
           }
         }
       });
@@ -942,7 +1017,8 @@ const cardsJson = JSON.stringify(allCards);
     item.addEventListener('click', () => {
       const cardId = (item as HTMLElement).dataset.id;
       if (cardId) {
-        parentHeroId = null; // Clear parent hero when opening from main grid
+        parentHeroId = null;
+        parentPage = null;
         openModal(cardId);
       }
     });
