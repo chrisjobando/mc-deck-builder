@@ -1,0 +1,96 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getUser } from '../lib/auth';
+import { prisma } from '../lib/db';
+import DeckGrid, { type DeckPreview } from '../components/DeckGrid';
+
+const user = await getUser(Astro);
+if (!user) return Astro.redirect('/api/auth/signin');
+
+const decks = await prisma.deck.findMany({
+  where: { userId: user.id },
+  include: { heroCard: { include: { identities: true } } },
+  orderBy: { updatedAt: 'desc' },
+});
+
+// Resolve all card IDs referenced across decks in one query
+const allCardIds = [...new Set(
+  decks.flatMap(d => (d.cards as { cardId: string }[]).map(c => c.cardId))
+)];
+const cardDetails = await prisma.deckCard.findMany({
+  where: { id: { in: allCardIds } },
+  select: { id: true, name: true, type: true, aspect: true, cost: true, imageUrl: true, text: true, traits: true, isUnique: true, resourceEnergy: true, resourceMental: true, resourcePhysical: true, resourceWild: true },
+});
+const cardMap = new Map(cardDetails.map(c => [c.id, c]));
+
+const TYPE_ORDER = ['ally', 'event', 'support', 'upgrade', 'resource', 'player_side_scheme'];
+
+function cardCount(cards: unknown): number {
+  if (!Array.isArray(cards)) return 0;
+  return (cards as { quantity: number }[]).reduce((sum, c) => sum + (c.quantity ?? 0), 0);
+}
+
+function timeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
+}
+
+const deckPreviews: DeckPreview[] = decks.map(deck => {
+  const rawCards = deck.cards as { cardId: string; quantity: number }[];
+  const cards = rawCards
+    .map(c => {
+      const d = cardMap.get(c.cardId);
+      if (!d) return null;
+      return { id: d.id, name: d.name, type: d.type, aspect: d.aspect, cost: d.cost, quantity: c.quantity, imageUrl: d.imageUrl, text: d.text, traits: d.traits, isUnique: d.isUnique, resourceEnergy: d.resourceEnergy, resourceMental: d.resourceMental, resourcePhysical: d.resourcePhysical, resourceWild: d.resourceWild };
+    })
+    .filter((c): c is NonNullable<typeof c> => c !== null)
+    .sort((a, b) => {
+      const ta = TYPE_ORDER.indexOf(a.type), tb = TYPE_ORDER.indexOf(b.type);
+      return ta !== tb ? ta - tb : a.name.localeCompare(b.name);
+    });
+
+  const heroIdentity = deck.heroCard.identities.find(i => i.identityType.startsWith('hero')) ?? deck.heroCard.identities[0];
+  const alterEgoIdentity = deck.heroCard.identities.find(i => i.identityType === 'alter_ego');
+
+  return {
+    id: deck.id,
+    name: deck.name,
+    heroName: deck.heroCard.name,
+    heroHealth: deck.heroCard.health,
+    heroImageUrl: heroIdentity?.imageUrl ?? null,
+    heroText: heroIdentity?.text ?? null,
+    heroTraits: heroIdentity?.traits ?? null,
+    alterEgoName: alterEgoIdentity?.name ?? null,
+    alterEgoImageUrl: alterEgoIdentity?.imageUrl ?? null,
+    alterEgoText: alterEgoIdentity?.text ?? null,
+    alterEgoTraits: alterEgoIdentity?.traits ?? null,
+    aspects: deck.aspects as string[],
+    cards,
+    total: cardCount(deck.cards),
+    updatedAt: timeAgo(deck.updatedAt),
+  };
+});
+---
+
+<Layout title="My Decks">
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold">My Decks</h1>
+      <p class="mt-1 text-[var(--color-text-muted)]">{decks.length} deck{decks.length !== 1 ? 's' : ''} saved</p>
+    </div>
+    <a
+      href="/builder"
+      class="inline-flex items-center gap-2 rounded-lg border border-[var(--color-primary)] bg-[var(--color-primary)]/20 px-5 py-2.5 text-sm font-semibold text-[var(--color-primary)] transition hover:bg-[var(--color-primary)] hover:text-white"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+      </svg>
+      New Deck
+    </a>
+  </div>
+
+  <DeckGrid client:load decks={deckPreviews} />
+</Layout>
