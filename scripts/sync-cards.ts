@@ -134,10 +134,15 @@ async function syncCards(): Promise<void> {
     const isPrimary = heroesInSet[0]?.code === card.code;
     if (!isPrimary) continue;
 
+    // MarvelCDB doesn't reliably return meta.multi_aspect; hardcode known heroes
+    // Spider-Woman uses 2 aspects; Adam Warlock uses all 4 (flagged here, handled in builder)
+    const MULTI_ASPECT_HERO_IDS = new Set(['04031a', '21031a']); // Spider-Woman, Adam Warlock
+    const isMultiAspect = card.meta?.multi_aspect ?? MULTI_ASPECT_HERO_IDS.has(card.code);
+
     const hashData = {
       name: card.name,
       health: card.health ?? 10,
-      isMultiAspect: card.meta?.multi_aspect ?? false,
+      isMultiAspect,
       packCode: card.pack_code,
       packName: card.pack_name,
     };
@@ -156,7 +161,7 @@ async function syncCards(): Promise<void> {
         ${card.code},
         ${card.name},
         ${card.health ?? 10},
-        ${card.meta?.multi_aspect ?? false},
+        ${isMultiAspect},
         ${card.pack_code},
         ${card.pack_name},
         ${dataHash},
