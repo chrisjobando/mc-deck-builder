@@ -18,6 +18,7 @@ export interface ModalCard {
   isUnique: boolean;
   deckLimit: number;
   packName: string | null;
+  packs?: string[];
   heroId: string | null;
   resourceEnergy: number | null;
   resourceMental: number | null;
@@ -56,7 +57,7 @@ function formatCardText(text: string) {
 
 function formatTraits(traits: string | null | undefined): string[] {
   if (!traits) return [];
-  return traits.split(/\.\s*/).filter(t => t.trim()).map(t => t.trim());
+  return traits.split('. ').map(t => t.replace(/\.$/, '').trim()).filter(Boolean);
 }
 
 export default function CardModal({ card, onClose }: Props) {
@@ -74,15 +75,12 @@ export default function CardModal({ card, onClose }: Props) {
   const isPSS = card.type === 'player_side_scheme';
   const traits = formatTraits(card.traits);
 
-  const resource = card.resourceEnergy
-    ? { emoji: '⚡', label: 'Energy', count: card.resourceEnergy, cls: 'bg-yellow-900/50 text-yellow-400' }
-    : card.resourceMental
-      ? { emoji: '🧪', label: 'Mental', count: card.resourceMental, cls: 'bg-blue-900/50 text-blue-400' }
-      : card.resourcePhysical
-        ? { emoji: '👊', label: 'Physical', count: card.resourcePhysical, cls: 'bg-red-900/50 text-red-400' }
-        : card.resourceWild
-          ? { emoji: '🍃', label: 'Wild', count: card.resourceWild, cls: 'bg-green-900/50 text-green-400' }
-          : null;
+  const resources = [
+    card.resourceEnergy && { emoji: '⚡', label: 'Energy', count: card.resourceEnergy, cls: 'bg-yellow-900/50 text-yellow-400' },
+    card.resourceMental && { emoji: '🧪', label: 'Mental', count: card.resourceMental, cls: 'bg-blue-900/50 text-blue-400' },
+    card.resourcePhysical && { emoji: '👊', label: 'Physical', count: card.resourcePhysical, cls: 'bg-red-900/50 text-red-400' },
+    card.resourceWild && { emoji: '🍃', label: 'Wild', count: card.resourceWild, cls: 'bg-green-900/50 text-green-400' },
+  ].filter(Boolean) as { emoji: string; label: string; count: number; cls: string }[];
 
   return (
     <div
@@ -179,14 +177,14 @@ export default function CardModal({ card, onClose }: Props) {
                   color="text-red-400"
                 />
               )}
-              {resource && (
-                <div className={`min-w-[60px] rounded-lg p-3 text-center ${resource.cls.split(' ')[0]}`}>
-                  <div className={`text-2xl font-bold ${resource.cls.split(' ')[1]}`}>
-                    {resource.emoji} {resource.count}
+              {resources.map(r => (
+                <div key={r.label} className={`min-w-[60px] rounded-lg p-3 text-center ${r.cls.split(' ')[0]}`}>
+                  <div className={`text-2xl font-bold ${r.cls.split(' ')[1]}`}>
+                    {r.emoji} {r.count}
                   </div>
-                  <div className="text-xs text-[var(--color-text-muted)]">{resource.label}</div>
+                  <div className="text-xs text-[var(--color-text-muted)]">{r.label}</div>
                 </div>
-              )}
+              ))}
             </div>
 
             {/* Card text */}
@@ -204,9 +202,18 @@ export default function CardModal({ card, onClose }: Props) {
               {card.deckLimit > 0 && (
                 <span><strong className="text-[var(--color-text)]">Deck Limit:</strong> {card.deckLimit}</span>
               )}
-              {card.packName && (
-                <span><strong className="text-[var(--color-text)]">Pack:</strong> {card.packName}</span>
-              )}
+              {(() => {
+                const displayPacks = (card.packs && card.packs.length > 0 ? [...card.packs].sort() : card.packName ? [card.packName] : []);
+                if (displayPacks.length === 0) return null;
+                return (
+                  <span>
+                    <strong className="text-[var(--color-text)]">
+                      {displayPacks.length > 1 ? 'Packs:' : 'Pack:'}
+                    </strong>{' '}
+                    {displayPacks.join(', ')}
+                  </span>
+                );
+              })()}
             </div>
           </div>
         </div>

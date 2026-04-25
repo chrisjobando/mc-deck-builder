@@ -87,7 +87,9 @@ const allCards = [
     const c = duplicates[0]; // Use first as representative
     const packs = duplicates.map(d => ({ name: d.packName, code: d.packCode })).filter(p => p.name);
     // Get unique packs (same card might be listed multiple times in same pack)
-    const uniquePacks = packs.filter((p, i, arr) => arr.findIndex(x => x.code === p.code) === i);
+    const uniquePacks = packs
+      .filter((p, i, arr) => arr.findIndex(x => x.code === p.code) === i)
+      .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
     
     // Collect all unique art variants (different imageUrls), filter out nulls
     const artVariants = duplicates
@@ -511,10 +513,9 @@ const ASPECT_FILTERS = [
 
   function formatTraits(traits: string | null | undefined): string {
     if (!traits) return '';
-    // Split by ". " or just "." at the end, filter empty strings
-    const traitList = traits.split(/\.\s*/).filter(t => t.trim());
-    return traitList.map(t => 
-      `<span class="px-2 pt-0.5 pb-1.5 bg-white/10 rounded text-sm">${t.trim()}</span>`
+    const traitList = traits.split('. ').map(t => t.replace(/\.$/, '').trim()).filter(Boolean);
+    return traitList.map(t =>
+      `<span class="px-2 pt-0.5 pb-1.5 bg-white/10 rounded text-sm">${t}</span>`
     ).join('');
   }
 

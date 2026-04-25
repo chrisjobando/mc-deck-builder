@@ -1,15 +1,29 @@
 import js from '@eslint/js';
-import tseslint from 'typescript-eslint';
+import prettierConfig from 'eslint-config-prettier';
 import astroPlugin from 'eslint-plugin-astro';
 import reactPlugin from 'eslint-plugin-react';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
-import prettierConfig from 'eslint-config-prettier';
+import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   { ignores: ['dist/', '.astro/', 'node_modules/', 'src/generated/'] },
-  js.configs.recommended,
-  ...tseslint.configs.recommended,
+  // Astro files - must come first with their own parser
+  ...astroPlugin.configs['flat/recommended'],
+  // JS/TS files (not .astro)
   {
+    files: ['**/*.js', '**/*.ts', '**/*.tsx'],
+    ...js.configs.recommended,
+  },
+  {
+    files: ['**/*.ts', '**/*.tsx'],
+    ...tseslint.configs.recommended[0],
+  },
+  ...tseslint.configs.recommended.slice(1).map(config => ({
+    ...config,
+    files: ['**/*.ts', '**/*.tsx'],
+  })),
+  {
+    files: ['**/*.tsx'],
     plugins: {
       react: reactPlugin,
       'react-hooks': reactHooksPlugin,
@@ -25,6 +39,5 @@ export default tseslint.config(
       'react-hooks/exhaustive-deps': 'warn',
     },
   },
-  ...astroPlugin.configs['flat/recommended'],
   prettierConfig
 );
