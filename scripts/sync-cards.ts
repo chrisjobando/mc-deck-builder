@@ -291,12 +291,15 @@ async function syncCards(): Promise<void> {
       heroId = hero?.code ?? null;
     }
 
+    // Resources have no cost concept (null); all other playable types default to 0 when the API omits the field
+    const cost = card.type_code === 'resource' ? (card.cost ?? null) : (card.cost ?? 0);
+
     const hashData = {
       name: card.name,
       aspect,
       attack: card.attack ?? null,
       attackCost: card.attack_cost ?? null,
-      cost: card.cost ?? null,
+      cost,
       deckLimit: card.deck_limit ?? 3,
       health: card.health ?? null,
       heroId,
@@ -336,7 +339,7 @@ async function syncCards(): Promise<void> {
         ${aspect},
         ${card.attack ?? null},
         ${card.attack_cost ?? null},
-        ${card.cost ?? null},
+        ${cost},
         ${card.deck_limit ?? 3},
         ${card.health ?? null},
         ${heroId},

@@ -15,10 +15,18 @@ const heroes = await prisma.heroCard.findMany({
 const rawCards = await prisma.deckCard.findMany({ orderBy: { name: 'asc' } });
 
 // Deduplicate cards by name + text + heroId (reprints collapse to one entry)
+// Prefer the printing that has an image over one that doesn't
 const cardsByKey = new Map<string, typeof rawCards[0]>();
+const cardPacksMap = new Map<string, string[]>();
 for (const card of rawCards) {
   const key = `${card.name}|||${card.text ?? ''}|||${card.heroId ?? ''}`;
-  if (!cardsByKey.has(key)) cardsByKey.set(key, card);
+  const existing = cardsByKey.get(key);
+  if (!existing || (!existing.imageUrl && card.imageUrl)) {
+    cardsByKey.set(key, card);
+  }
+  const packs = cardPacksMap.get(key) ?? [];
+  if (card.packName && !packs.includes(card.packName)) packs.push(card.packName);
+  cardPacksMap.set(key, packs);
 }
 
 const heroOptions = heroes
@@ -37,7 +45,7 @@ const heroOptions = heroes
     })),
   }));
 
-const cardPool = Array.from(cardsByKey.values()).map(c => ({
+const cardPool = Array.from(cardsByKey.entries()).map(([key, c]) => ({
   id: c.id,
   name: c.name,
   type: c.type,
@@ -61,6 +69,8 @@ const cardPool = Array.from(cardsByKey.values()).map(c => ({
   resourceMental: c.resourceMental,
   resourcePhysical: c.resourcePhysical,
   resourceWild: c.resourceWild,
+  quantity: c.quantity,
+  packs: (cardPacksMap.get(key) ?? [c.packName ?? '']).sort(),
 }));
 ---
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import CardModal from './CardModal';
 
 interface HeroIdentity {
@@ -41,6 +41,8 @@ interface CardPoolItem {
   resourceMental: number | null;
   resourcePhysical: number | null;
   resourceWild: number | null;
+  quantity: number;
+  packs: string[];
 }
 
 interface DeckEntry {
@@ -87,6 +89,19 @@ const TYPE_BADGE: Record<string, string> = {
   resource: 'bg-gray-800 text-gray-300',
   player_side_scheme: 'bg-orange-900/80 text-orange-200',
 };
+
+const TYPE_COLOR: Record<string, string> = {
+  ally: 'bg-blue-500',
+  event: 'bg-purple-500',
+  support: 'bg-yellow-500',
+  upgrade: 'bg-emerald-500',
+  resource: 'bg-gray-500',
+  player_side_scheme: 'bg-orange-500',
+};
+
+function formatType(type: string) {
+  return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
 
 // Adam Warlock must use all 4 aspects — skip the aspect step for him
 const WARLOCK_ID = '21031a';
@@ -161,7 +176,7 @@ export default function DeckBuilder() {
   const deckEntries = useMemo(() => Array.from(deck.values()), [deck]);
 
   const totalDeckSize = useMemo(
-    () => deckEntries.filter(e => !e.card.heroId).reduce((sum, e) => sum + e.quantity, 0),
+    () => deckEntries.reduce((sum, e) => sum + e.quantity, 0),
     [deckEntries],
   );
 
@@ -183,10 +198,8 @@ export default function DeckBuilder() {
       const currentQty = entry?.quantity ?? 0;
       const limit = card.isUnique ? 1 : card.deckLimit;
       if (currentQty >= limit) return prev;
-      const currentTotal = Array.from(prev.values())
-        .filter(e => !e.card.heroId)
-        .reduce((sum, e) => sum + e.quantity, 0);
-      if (!card.heroId && currentTotal >= 40) return prev;
+      const currentTotal = Array.from(prev.values()).reduce((sum, e) => sum + e.quantity, 0);
+      if (currentTotal >= 50) return prev;
       const next = new Map(prev);
       next.set(card.id, { card, quantity: currentQty + 1 });
       return next;
@@ -389,7 +402,29 @@ export default function DeckBuilder() {
 
   const heroSpecificEntries = deckEntries.filter(e => !!e.card.heroId);
   const nonHeroEntries = deckEntries.filter(e => !e.card.heroId);
+
+  const nonHeroTotal = nonHeroEntries.reduce((s, e) => s + e.quantity, 0);
+  const typeBreakdown = Object.entries(
+    deckEntries.reduce<Record<string, number>>((acc, e) => {
+      acc[e.card.type] = (acc[e.card.type] ?? 0) + e.quantity;
+      return acc;
+    }, {}),
+  ).sort((a, b) => b[1] - a[1]);
+
+  const COST_BUCKETS = [0, 1, 2, 3, 4, 5, 6] as const;
+  const costBreakdown = COST_BUCKETS.reduce<Record<number, number>>((acc, b) => ({ ...acc, [b]: 0 }), {});
+  for (const e of deckEntries) {
+    if (e.card.cost === null) continue;
+    const b = Math.min(e.card.cost, 6);
+    costBreakdown[b] += e.quantity;
+  }
+  const maxCostCount = Math.max(...COST_BUCKETS.map(b => costBreakdown[b]), 1);
+
   const sortedPool = [...filteredPool].sort((a, b) => {
+    const aInDeck = (deck.get(a.id)?.quantity ?? 0) > 0;
+    const bInDeck = (deck.get(b.id)?.quantity ?? 0) > 0;
+    if (aInDeck && !bInDeck) return -1;
+    if (!aInDeck && bInDeck) return 1;
     if (a.heroId && !b.heroId) return -1;
     if (!a.heroId && b.heroId) return 1;
     return a.name.localeCompare(b.name);
@@ -453,11 +488,18 @@ export default function DeckBuilder() {
                   No cards found
                 </p>
               ) : (
-                <table className="w-full text-sm">
+                <table className="w-full table-fixed text-sm">
+                  <colgroup>
+                    <col />
+                    <col className="w-12" />
+                    <col className="w-12" />
+                    <col className="w-20" />
+                  </colgroup>
                   <thead className="sticky top-0 bg-[var(--color-surface)] text-xs text-[var(--color-text-muted)]">
                     <tr>
                       <th className="px-3 py-2 text-left">Card</th>
                       <th className="px-2 py-2 text-center">Cost</th>
+                      <th className="px-2 py-2 text-center">Owned</th>
                       <th className="px-2 py-2 text-right"></th>
                     </tr>
                   </thead>
@@ -466,7 +508,7 @@ export default function DeckBuilder() {
                       const inDeck = deck.get(card.id)?.quantity ?? 0;
                       const limit = card.isUnique ? 1 : card.deckLimit;
                       const atLimit = inDeck >= limit;
-                      const atDeckCap = !card.heroId && totalDeckSize >= 40 && inDeck === 0;
+                      const atDeckCap = totalDeckSize >= 50 && inDeck === 0;
                       return (
                         <tr key={card.id} className="border-t border-white/5 hover:bg-white/[0.03]">
                           <td className="px-3 py-2">
@@ -477,9 +519,12 @@ export default function DeckBuilder() {
                                 />
                               )}
                               <div>
-                                <span className={card.heroId ? 'text-yellow-300' : ''}>
+                                <button
+                                  onClick={() => setModalCard(card)}
+                                  className={`hover:underline ${card.heroId ? 'text-yellow-300' : ''}`}
+                                >
                                   {card.name}
-                                </span>
+                                </button>
                                 {card.isUnique && (
                                   <span className="ml-1 text-xs text-[var(--color-text-muted)]">
                                     ★
@@ -488,7 +533,7 @@ export default function DeckBuilder() {
                                 <span
                                   className={`ml-1.5 rounded px-1 py-0.5 text-[10px] ${TYPE_BADGE[card.type] ?? 'bg-gray-800 text-gray-300'}`}
                                 >
-                                  {card.type}
+                                  {formatType(card.type)}
                                 </span>
                               </div>
                             </div>
@@ -500,6 +545,17 @@ export default function DeckBuilder() {
                           </td>
                           <td className="px-2 py-2 text-center text-xs text-[var(--color-text-muted)]">
                             {card.cost ?? '—'}
+                          </td>
+                          <td className="px-2 py-2 text-center text-xs">
+                            {(() => {
+                              const remaining = card.quantity - inDeck;
+                              const cls = remaining === 0
+                                ? 'text-red-400'
+                                : remaining < card.quantity
+                                  ? 'text-amber-400'
+                                  : 'text-[var(--color-text-muted)]';
+                              return <span className={cls}>{remaining}</span>;
+                            })()}
                           </td>
                           <td className="px-2 py-2 text-right">
                             <div className="flex items-center justify-end gap-1">
@@ -543,19 +599,19 @@ export default function DeckBuilder() {
               <h2 className="font-semibold">Deck</h2>
               <span
                 className={`text-sm font-bold ${
-                  totalDeckSize > 40
+                  totalDeckSize > 50
                     ? 'text-red-400'
-                    : totalDeckSize === 40
+                    : totalDeckSize >= 40
                       ? 'text-green-400'
                       : 'text-[var(--color-text-muted)]'
                 }`}
               >
-                {totalDeckSize}/40
+                {totalDeckSize}
               </span>
             </div>
             <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
               <div
-                className={`h-full rounded-full transition-all ${totalDeckSize >= 40 ? 'bg-green-500' : 'bg-[var(--color-primary)]'}`}
+                className={`h-full rounded-full transition-all ${totalDeckSize > 50 ? 'bg-red-500' : totalDeckSize >= 40 ? 'bg-green-500' : 'bg-[var(--color-primary)]'}`}
                 style={{ width: `${Math.min(100, (totalDeckSize / 40) * 100)}%` }}
               />
             </div>
@@ -569,7 +625,7 @@ export default function DeckBuilder() {
                 <div className="space-y-1">
                   {heroSpecificEntries.length > 0 && (
                     <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-                      Hero Cards (free)
+                      Hero Cards (Required)
                     </p>
                   )}
                   {heroSpecificEntries.map(e => (
@@ -585,6 +641,60 @@ export default function DeckBuilder() {
               )}
             </div>
           </div>
+
+          {/* Composition */}
+          {nonHeroTotal > 0 && (
+            <div className="rounded-lg border border-white/10 bg-[var(--color-surface)] p-4">
+              <h2 className="mb-3 text-sm font-semibold">Composition</h2>
+
+              {/* Segmented type bar */}
+              <div className="mb-2 flex h-2 w-full overflow-hidden rounded-full">
+                {typeBreakdown.map(([type, count]) => (
+                  <div
+                    key={type}
+                    className={`h-full transition-all ${TYPE_COLOR[type] ?? 'bg-gray-500'}`}
+                    style={{ width: `${(count / totalDeckSize) * 100}%` }}
+                    title={`${formatType(type)}: ${count}`}
+                  />
+                ))}
+              </div>
+
+              {/* Type pills */}
+              <div className="mb-4 flex flex-wrap gap-x-3 gap-y-1">
+                {typeBreakdown.map(([type, count]) => (
+                  <span key={type} className="flex items-center gap-1 text-[10px] text-[var(--color-text-muted)]">
+                    <span className={`inline-block h-2 w-2 flex-shrink-0 rounded-full ${TYPE_COLOR[type] ?? 'bg-gray-500'}`} />
+                    {formatType(type)} {count}
+                  </span>
+                ))}
+              </div>
+
+              {/* Cost curve */}
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Cost Curve</p>
+              <div className="flex gap-1">
+                {COST_BUCKETS.map(cost => {
+                  const count = costBreakdown[cost];
+                  const barPx = count > 0 ? Math.max(4, Math.round((count / maxCostCount) * 36)) : 0;
+                  return (
+                    <div key={cost} className="flex flex-1 flex-col items-center">
+                      <span className={`mb-0.5 text-[9px] leading-none ${count > 0 ? '' : 'invisible'}`}>
+                        {count}
+                      </span>
+                      <div className="flex h-9 w-full items-end">
+                        <div
+                          className="w-full rounded-t-sm bg-[var(--color-primary)] transition-all duration-300"
+                          style={{ height: `${barPx}px` }}
+                        />
+                      </div>
+                      <span className="mt-0.5 text-[9px] leading-none text-[var(--color-text-muted)]">
+                        {cost === 6 ? '6+' : cost}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* AI Suggestions */}
           <div className="rounded-lg border border-white/10 bg-[var(--color-surface)] p-4">
@@ -622,7 +732,7 @@ export default function DeckBuilder() {
             />
             <button
               onClick={handleSave}
-              disabled={saveStatus === 'saving' || totalDeckSize === 0}
+              disabled={saveStatus === 'saving' || totalDeckSize < 40 || totalDeckSize > 50}
               className="w-full rounded bg-[var(--color-primary)] px-4 py-2 text-sm font-medium transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved!' : 'Save Deck'}
@@ -663,19 +773,25 @@ function DeckRow({
         {entry.card.name}
       </button>
       <div className="flex flex-shrink-0 items-center gap-1">
-        <button
-          onClick={() => onRemove(entry.card.id)}
-          className="text-white/40 hover:text-white/80"
-        >
-          −
-        </button>
-        <span className="w-4 text-center font-bold">{entry.quantity}</span>
-        <button
-          onClick={() => onAdd(entry.card)}
-          className="text-white/40 hover:text-white/80"
-        >
-          +
-        </button>
+        {isHero ? (
+          <span className="w-4 text-center font-bold text-yellow-300/60">{entry.quantity}</span>
+        ) : (
+          <>
+            <button
+              onClick={() => onRemove(entry.card.id)}
+              className="text-white/40 hover:text-white/80"
+            >
+              −
+            </button>
+            <span className="w-4 text-center font-bold">{entry.quantity}</span>
+            <button
+              onClick={() => onAdd(entry.card)}
+              className="text-white/40 hover:text-white/80"
+            >
+              +
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
