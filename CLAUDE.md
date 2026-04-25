@@ -63,9 +63,11 @@ Tailwind v4 is loaded via `@import "tailwindcss"` in `src/styles/global.css`. **
 - Faction codes from MarvelCDB map to the `Aspect` enum via `FACTION_TO_ASPECT` in the sync script. Cards with `faction_code === 'hero'` are hero-specific.
 - Cards from modular/villain/scenario/campaign set types are excluded from `deck_cards`.
 
+### TypeScript
+
+Use TypeScript everywhere possible. For client-side scripts in `.astro` files, avoid `is:inline` — instead write a React component (`client:load`) or a `.ts` module. Avoid plain `<script>` tags that bypass type checking.
+
 ### Planned Features (not yet built)
 
-- `/builder` — AI deck building with Claude
-- `/decks` — User's saved decks
 - `/sessions` — Multiplayer deck-building sessions
 - Collection management (which packs a user owns)

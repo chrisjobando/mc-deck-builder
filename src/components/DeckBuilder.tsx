@@ -99,6 +99,15 @@ const TYPE_COLOR: Record<string, string> = {
   player_side_scheme: 'bg-orange-500',
 };
 
+const TYPE_TEXT_COLOR: Record<string, string> = {
+  ally: 'text-blue-400',
+  event: 'text-purple-400',
+  support: 'text-yellow-400',
+  upgrade: 'text-emerald-400',
+  resource: 'text-gray-400',
+  player_side_scheme: 'text-orange-400',
+};
+
 function formatType(type: string) {
   return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
@@ -107,13 +116,19 @@ function formatType(type: string) {
 const WARLOCK_ID = '21031a';
 const ALL_ASPECTS = ['Aggression', 'Justice', 'Leadership', 'Protection'];
 
+function heroSlug(name: string, id: string): string {
+  const nameSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return `${nameSlug}-${id}`;
+}
+
 const TYPE_FILTERS = [
   { value: 'all', label: 'All' },
   { value: 'ally', label: 'Allies' },
   { value: 'event', label: 'Events' },
+  { value: 'resource', label: 'Resources' },
+  { value: 'player_side_scheme', label: 'Side Schemes' },
   { value: 'support', label: 'Supports' },
   { value: 'upgrade', label: 'Upgrades' },
-  { value: 'resource', label: 'Resources' },
 ];
 
 export default function DeckBuilder() {
@@ -131,35 +146,51 @@ export default function DeckBuilder() {
   const [deckName, setDeckName] = useState('');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [modalCard, setModalCard] = useState<CardPoolItem | null>(null);
+  const [heroSide, setHeroSide] = useState<'hero' | 'alter_ego'>('hero');
 
   useEffect(() => {
     const heroesEl = document.getElementById('heroes-data');
     const cardsEl = document.getElementById('cards-data');
-    if (heroesEl?.dataset.heroes) setHeroes(JSON.parse(heroesEl.dataset.heroes));
-    if (cardsEl?.dataset.cards) setAllCards(JSON.parse(cardsEl.dataset.cards));
+    const initialEl = document.getElementById('initial-state');
+
+    const heroesData: HeroOption[] = heroesEl?.dataset.heroes ? JSON.parse(heroesEl.dataset.heroes) : [];
+    const cardsData: CardPoolItem[] = cardsEl?.dataset.cards ? JSON.parse(cardsEl.dataset.cards) : [];
+
+    setHeroes(heroesData);
+    setAllCards(cardsData);
+
+    const initialStep = (initialEl?.dataset.step as Step) ?? 'hero';
+    setStep(initialStep);
+
+    const initialHeroId = initialEl?.dataset.heroId;
+    if (initialHeroId) {
+      const hero = heroesData.find(h => h.id === initialHeroId);
+      if (hero) {
+        setSelectedHero(hero);
+        const initialDeck = new Map<string, DeckEntry>();
+        for (const card of cardsData.filter(c => c.heroId === initialHeroId)) {
+          initialDeck.set(card.id, { card, quantity: card.deckLimit });
+        }
+        setDeck(initialDeck);
+
+        const aspectsStr = initialEl?.dataset.aspects;
+        if (aspectsStr) {
+          const aspects = aspectsStr.split(',').map(a => a.charAt(0).toUpperCase() + a.slice(1));
+          setSelectedAspects(aspects);
+        }
+      }
+    }
   }, []);
 
   const isMultiAspect = !!selectedHero?.isMultiAspect;
 
   function selectHero(hero: HeroOption) {
-    setSelectedHero(hero);
-    setAiSuggestion('');
-    setSaveStatus('idle');
-    setDeckName('');
-
-    // Pre-populate hero-specific cards at their deck limit
-    const initialDeck = new Map<string, DeckEntry>();
-    for (const card of allCards.filter(c => c.heroId === hero.id)) {
-      initialDeck.set(card.id, { card, quantity: card.deckLimit });
-    }
-    setDeck(initialDeck);
-
+    const slug = heroSlug(hero.name, hero.id);
     if (hero.id === WARLOCK_ID) {
-      setSelectedAspects(ALL_ASPECTS);
-      setStep('editor');
+      const aspectsParam = [...ALL_ASPECTS].map(a => a.toLowerCase()).sort().join(',');
+      window.location.href = `/builder/${slug}/${aspectsParam}`;
     } else {
-      setSelectedAspects([]);
-      setStep('aspect');
+      window.location.href = `/builder/${slug}`;
     }
   }
 
@@ -309,6 +340,7 @@ export default function DeckBuilder() {
           {filteredHeroes.map(hero => {
             const primary =
               hero.identities.find(i => i.identityType.startsWith('hero')) || hero.identities[0];
+            const alterEgo = hero.identities.find(i => i.identityType === 'alter_ego');
             return (
               <button
                 key={hero.id}
@@ -330,11 +362,8 @@ export default function DeckBuilder() {
                 </div>
                 <div className="p-2">
                   <p className="truncate text-xs font-semibold">{hero.name}</p>
-                  <p className="text-xs text-[var(--color-text-muted)]">HP {hero.health}</p>
-                  {hero.isMultiAspect && (
-                    <span className="mt-1 inline-block rounded bg-blue-900/60 px-1.5 py-0.5 text-[10px] text-blue-300">
-                      Multi-Aspect
-                    </span>
+                  {alterEgo && (
+                    <p className="truncate text-[10px] text-[var(--color-text-muted)]">{alterEgo.name}</p>
                   )}
                 </div>
               </button>
@@ -351,7 +380,7 @@ export default function DeckBuilder() {
     return (
       <div className="mx-auto max-w-lg">
         <button
-          onClick={() => setStep('hero')}
+          onClick={() => { window.location.href = '/builder'; }}
           className="mb-6 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
         >
           ← Back
@@ -388,7 +417,12 @@ export default function DeckBuilder() {
           Selected: Basic{selectedAspects.length > 0 ? `, ${selectedAspects.join(', ')}` : ''}
         </p>
         <button
-          onClick={() => setStep('editor')}
+          onClick={() => {
+            if (!selectedHero) return;
+            const slug = heroSlug(selectedHero.name, selectedHero.id);
+            const aspectsParam = [...selectedAspects].map(a => a.toLowerCase()).sort().join(',');
+            window.location.href = `/builder/${slug}/${aspectsParam}`;
+          }}
           disabled={selectedAspects.length !== (isMultiAspect ? 2 : 1)}
           className="mt-6 w-full rounded-lg bg-[var(--color-primary)] px-6 py-3 font-semibold transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
@@ -446,7 +480,11 @@ export default function DeckBuilder() {
           </div>
         </div>
         <button
-          onClick={() => setStep(selectedHero?.id === WARLOCK_ID ? 'hero' : 'aspect')}
+          onClick={() => {
+            window.location.href = selectedHero?.id === WARLOCK_ID
+              ? '/builder'
+              : `/builder/${heroSlug(selectedHero!.name, selectedHero!.id)}`;
+          }}
           className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
         >
           {selectedHero?.id === WARLOCK_ID ? '← Change Hero' : '← Change Hero/Aspect'}
@@ -589,10 +627,88 @@ export default function DeckBuilder() {
               )}
             </div>
           </div>
+
+          {/* Composition */}
+          <div className="rounded-lg border border-white/10 bg-[var(--color-surface)] p-4">
+            <h2 className="mb-3 text-sm font-semibold">Composition</h2>
+
+            {/* Segmented type bar */}
+            <div className="mb-2 flex h-2 w-full overflow-hidden rounded-full">
+              {typeBreakdown.map(([type, count]) => (
+                <div
+                  key={type}
+                  className={`h-full transition-all ${TYPE_COLOR[type] ?? 'bg-gray-500'}`}
+                  style={{ width: `${(count / totalDeckSize) * 100}%` }}
+                  title={`${formatType(type)}: ${count}`}
+                />
+              ))}
+            </div>
+
+            {/* Type pills */}
+            <div className="mb-4 flex flex-wrap gap-x-3 gap-y-1">
+              {typeBreakdown.map(([type, count]) => (
+                <span key={type} className="flex items-center gap-1 text-[10px] text-[var(--color-text-muted)]">
+                  <span className={`inline-block h-2 w-2 flex-shrink-0 rounded-full ${TYPE_COLOR[type] ?? 'bg-gray-500'}`} />
+                  {formatType(type)} {count}
+                </span>
+              ))}
+            </div>
+
+            {/* Cost curve */}
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Cost Curve</p>
+            <div className="flex gap-1">
+              {COST_BUCKETS.map(cost => {
+                const count = costBreakdown[cost];
+                const barPx = count > 0 ? Math.max(4, Math.round((count / maxCostCount) * 36)) : 0;
+                return (
+                  <div key={cost} className="flex flex-1 flex-col items-center">
+                    <span className={`mb-0.5 text-[9px] leading-none ${count > 0 ? '' : 'invisible'}`}>
+                      {count}
+                    </span>
+                    <div className="flex h-9 w-full items-end">
+                      <div
+                        className="w-full rounded-t-sm bg-[var(--color-primary)] transition-all duration-300"
+                        style={{ height: `${barPx}px` }}
+                      />
+                    </div>
+                    <span className="mt-0.5 text-[9px] leading-none text-[var(--color-text-muted)]">
+                      {cost === 6 ? '6+' : cost}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* ── Right: Deck Panel ── */}
         <div className="flex w-full flex-col gap-3 lg:w-80 lg:flex-shrink-0">
+          {/* Hero card */}
+          {selectedHero && (() => {
+            const shownIdentity = selectedHero.identities.find(i =>
+              heroSide === 'alter_ego' ? i.identityType === 'alter_ego' : i.identityType.startsWith('hero')
+            ) ?? selectedHero.identities[0];
+            const hasAlterEgo = selectedHero.identities.some(i => i.identityType === 'alter_ego');
+            return (
+              <div className="overflow-hidden rounded-lg border border-white/10">
+                <div className="relative aspect-[63/88] w-full bg-black/30">
+                  {shownIdentity?.imageUrl ? (
+                    <img src={shownIdentity.imageUrl} alt={shownIdentity.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-xs text-[var(--color-text-muted)]">No Image</div>
+                  )}
+                </div>
+                {hasAlterEgo && (
+                  <button
+                    onClick={() => setHeroSide(s => s === 'hero' ? 'alter_ego' : 'hero')}
+                    className="w-full bg-[var(--color-surface)] px-3 py-2 text-xs text-[var(--color-text-muted)] transition hover:bg-white/5 hover:text-[var(--color-text)]"
+                  >
+                    {heroSide === 'hero' ? `Flip to Alter Ego →` : `← Flip to Hero`}
+                  </button>
+                )}
+              </div>
+            );
+          })()}
           {/* Deck stats */}
           <div className="rounded-lg border border-white/10 bg-[var(--color-surface)] p-4">
             <div className="mb-2 flex items-center justify-between">
@@ -642,59 +758,6 @@ export default function DeckBuilder() {
             </div>
           </div>
 
-          {/* Composition */}
-          {nonHeroTotal > 0 && (
-            <div className="rounded-lg border border-white/10 bg-[var(--color-surface)] p-4">
-              <h2 className="mb-3 text-sm font-semibold">Composition</h2>
-
-              {/* Segmented type bar */}
-              <div className="mb-2 flex h-2 w-full overflow-hidden rounded-full">
-                {typeBreakdown.map(([type, count]) => (
-                  <div
-                    key={type}
-                    className={`h-full transition-all ${TYPE_COLOR[type] ?? 'bg-gray-500'}`}
-                    style={{ width: `${(count / totalDeckSize) * 100}%` }}
-                    title={`${formatType(type)}: ${count}`}
-                  />
-                ))}
-              </div>
-
-              {/* Type pills */}
-              <div className="mb-4 flex flex-wrap gap-x-3 gap-y-1">
-                {typeBreakdown.map(([type, count]) => (
-                  <span key={type} className="flex items-center gap-1 text-[10px] text-[var(--color-text-muted)]">
-                    <span className={`inline-block h-2 w-2 flex-shrink-0 rounded-full ${TYPE_COLOR[type] ?? 'bg-gray-500'}`} />
-                    {formatType(type)} {count}
-                  </span>
-                ))}
-              </div>
-
-              {/* Cost curve */}
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Cost Curve</p>
-              <div className="flex gap-1">
-                {COST_BUCKETS.map(cost => {
-                  const count = costBreakdown[cost];
-                  const barPx = count > 0 ? Math.max(4, Math.round((count / maxCostCount) * 36)) : 0;
-                  return (
-                    <div key={cost} className="flex flex-1 flex-col items-center">
-                      <span className={`mb-0.5 text-[9px] leading-none ${count > 0 ? '' : 'invisible'}`}>
-                        {count}
-                      </span>
-                      <div className="flex h-9 w-full items-end">
-                        <div
-                          className="w-full rounded-t-sm bg-[var(--color-primary)] transition-all duration-300"
-                          style={{ height: `${barPx}px` }}
-                        />
-                      </div>
-                      <span className="mt-0.5 text-[9px] leading-none text-[var(--color-text-muted)]">
-                        {cost === 6 ? '6+' : cost}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {/* AI Suggestions */}
           <div className="rounded-lg border border-white/10 bg-[var(--color-surface)] p-4">
@@ -766,12 +829,17 @@ function DeckRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-1 text-xs">
-      <button
-        onClick={() => onCardClick(entry.card)}
-        className={`truncate text-left hover:underline ${isHero ? 'text-yellow-300' : ''}`}
-      >
-        {entry.card.name}
-      </button>
+      <div className="flex min-w-0 items-center gap-1.5">
+        <span className={`w-3 flex-shrink-0 text-center text-[10px] font-bold leading-none ${TYPE_TEXT_COLOR[entry.card.type] ?? 'text-gray-400'}`}>
+          {entry.card.type === 'player_side_scheme' ? 'P' : entry.card.type[0].toUpperCase()}
+        </span>
+        <button
+          onClick={() => onCardClick(entry.card)}
+          className={`truncate text-left hover:underline ${isHero ? 'text-yellow-300' : ''}`}
+        >
+          {entry.card.name}
+        </button>
+      </div>
       <div className="flex flex-shrink-0 items-center gap-1">
         {isHero ? (
           <span className="w-4 text-center font-bold text-yellow-300/60">{entry.quantity}</span>

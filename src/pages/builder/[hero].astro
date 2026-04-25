@@ -1,0 +1,29 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getUser } from '../../lib/auth';
+import { loadBuilderData, heroSlug } from '../../lib/builder-data';
+import DeckBuilder from '../../components/DeckBuilder';
+
+const user = await getUser(Astro);
+if (!user) return Astro.redirect('/api/auth/signin');
+
+const { hero: heroParam } = Astro.params;
+const { heroOptions, cardPool } = await loadBuilderData();
+
+const hero = heroOptions.find(h => heroSlug(h.name, h.id) === heroParam);
+if (!hero) return Astro.redirect('/builder');
+
+// Adam Warlock skips aspect selection — redirect straight to editor
+const WARLOCK_ID = '21031a';
+if (hero.id === WARLOCK_ID) {
+  return Astro.redirect(`/builder/${heroParam}/aggression,justice,leadership,protection`);
+}
+---
+
+<Layout title={`Build a Deck — ${hero.name}`}>
+  <div id="heroes-data" data-heroes={JSON.stringify(heroOptions)} class="hidden"></div>
+  <div id="cards-data" data-cards={JSON.stringify(cardPool)} class="hidden"></div>
+  <div id="user-data" data-user-id={user.id} class="hidden"></div>
+  <div id="initial-state" data-step="aspect" data-hero-id={hero.id} class="hidden"></div>
+  <DeckBuilder client:load />
+</Layout>

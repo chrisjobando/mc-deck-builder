@@ -1,0 +1,40 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { getUser } from '../../../lib/auth';
+import { loadBuilderData, heroSlug } from '../../../lib/builder-data';
+import DeckBuilder from '../../../components/DeckBuilder';
+
+const user = await getUser(Astro);
+if (!user) return Astro.redirect('/api/auth/signin');
+
+const { hero: heroParam, aspects: aspectsParam } = Astro.params;
+const { heroOptions, cardPool } = await loadBuilderData();
+
+const VALID_ASPECTS = new Set(['Aggression', 'Justice', 'Leadership', 'Pool', 'Protection']);
+
+const hero = heroOptions.find(h => heroSlug(h.name, h.id) === heroParam);
+if (!hero) return Astro.redirect('/builder');
+
+const aspects = aspectsParam
+  .split(',')
+  .map(a => a.charAt(0).toUpperCase() + a.slice(1).toLowerCase())
+  .filter(a => VALID_ASPECTS.has(a));
+
+if (aspects.length === 0) return Astro.redirect(`/builder/${heroParam}`);
+
+const title = `${hero.name} — ${aspects.join('/')}`;
+---
+
+<Layout title={title}>
+  <div id="heroes-data" data-heroes={JSON.stringify(heroOptions)} class="hidden"></div>
+  <div id="cards-data" data-cards={JSON.stringify(cardPool)} class="hidden"></div>
+  <div id="user-data" data-user-id={user.id} class="hidden"></div>
+  <div
+    id="initial-state"
+    data-step="editor"
+    data-hero-id={hero.id}
+    data-aspects={aspects.map(a => a.toLowerCase()).join(',')}
+    class="hidden"
+  ></div>
+  <DeckBuilder client:load />
+</Layout>
