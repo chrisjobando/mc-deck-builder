@@ -1,5 +1,5 @@
 import { prisma } from './db';
-export { heroSlug } from './utils';
+export { heroSlug, WARLOCK_ID } from './utils';
 
 export async function loadBuilderData() {
   const heroes = await prisma.heroCard.findMany({
@@ -12,16 +12,24 @@ export async function loadBuilderData() {
   // Deduplicate cards by name + text + heroId (reprints collapse to one entry)
   // Prefer the printing that has an image over one that doesn't
   const cardsByKey = new Map<string, typeof rawCards[0]>();
-  const cardPacksMap = new Map<string, string[]>();
+  const cardPacksMap = new Map<string, Set<string>>();
+  const cardPackCodesMap = new Map<string, Set<string>>();
   for (const card of rawCards) {
     const key = `${card.name}|||${card.text ?? ''}|||${card.heroId ?? ''}|||${card.resourceEnergy ?? 0}|${card.resourceMental ?? 0}|${card.resourcePhysical ?? 0}|${card.resourceWild ?? 0}`;
     const existing = cardsByKey.get(key);
     if (!existing || (!existing.imageUrl && card.imageUrl)) {
       cardsByKey.set(key, card);
     }
-    const packs = cardPacksMap.get(key) ?? [];
-    if (card.packName && !packs.includes(card.packName)) packs.push(card.packName);
-    cardPacksMap.set(key, packs);
+    if (card.packName) {
+      const s = cardPacksMap.get(key) ?? new Set<string>();
+      s.add(card.packName);
+      cardPacksMap.set(key, s);
+    }
+    if (card.packCode) {
+      const s = cardPackCodesMap.get(key) ?? new Set<string>();
+      s.add(card.packCode);
+      cardPackCodesMap.set(key, s);
+    }
   }
 
   const heroOptions = heroes
@@ -65,7 +73,8 @@ export async function loadBuilderData() {
     resourcePhysical: c.resourcePhysical,
     resourceWild: c.resourceWild,
     quantity: c.quantity,
-    packs: (cardPacksMap.get(key) ?? [c.packName ?? '']).sort(),
+    packs: [...(cardPacksMap.get(key) ?? (c.packName ? [c.packName] : []))].sort(),
+    packCodes: [...(cardPackCodesMap.get(key) ?? (c.packCode ? [c.packCode] : []))].sort(),
   }));
 
   return { heroOptions, cardPool };

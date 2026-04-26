@@ -70,4 +70,3 @@ Use TypeScript everywhere possible. For client-side scripts in `.astro` files, a
 ### Planned Features (not yet built)
 
 - `/sessions` — Multiplayer deck-building sessions
-- Collection management (which packs a user owns)

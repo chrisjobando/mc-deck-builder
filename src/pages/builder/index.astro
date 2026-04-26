@@ -1,19 +1,24 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import { getUser } from '../../lib/auth';
+import { getUser, getUserOwnedPacks } from '../../lib/auth';
+import { ALWAYS_OWNED_CODES } from '../../lib/packs';
 import { loadBuilderData } from '../../lib/builder-data';
 import DeckBuilder from '../../components/DeckBuilder';
 
 const user = await getUser(Astro);
 if (!user) return Astro.redirect('/api/auth/signin');
 
-const { heroOptions, cardPool } = await loadBuilderData();
+const [{ heroOptions, cardPool }, ownedPackCodes] = await Promise.all([
+  loadBuilderData(),
+  getUserOwnedPacks(user.id as string),
+]);
+const collectionCodes = [...ALWAYS_OWNED_CODES, ...ownedPackCodes];
 ---
 
 <Layout title="Deck Builder">
   <div id="heroes-data" data-heroes={JSON.stringify(heroOptions)} class="hidden"></div>
   <div id="cards-data" data-cards={JSON.stringify(cardPool)} class="hidden"></div>
-  <div id="user-data" data-user-id={user.id} class="hidden"></div>
+  <div id="collection-data" data-owned={JSON.stringify(collectionCodes)} data-has-collection={ownedPackCodes.length > 0 ? 'true' : 'false'} class="hidden"></div>
   <div id="initial-state" data-step="hero" class="hidden"></div>
   <DeckBuilder client:load />
 </Layout>

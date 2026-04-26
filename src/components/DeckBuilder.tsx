@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { heroSlug, WARLOCK_ID } from '../lib/utils';
 import CardModal from './CardModal';
-import { heroSlug } from '../lib/utils';
 
 interface HeroIdentity {
   identityType: string;
@@ -44,6 +44,7 @@ interface CardPoolItem {
   resourceWild: number | null;
   quantity: number;
   packs: string[];
+  packCodes: string[];
 }
 
 interface DeckEntry {
@@ -100,21 +101,19 @@ const TYPE_COLOR: Record<string, string> = {
   player_side_scheme: 'bg-orange-500',
 };
 
-const TYPE_TEXT_COLOR: Record<string, string> = {
-  ally: 'text-blue-400',
-  event: 'text-purple-400',
-  support: 'text-yellow-400',
-  upgrade: 'text-emerald-400',
-  resource: 'text-gray-400',
-  player_side_scheme: 'text-orange-400',
+const ASPECT_TEXT_COLOR: Record<string, string> = {
+  Aggression: 'text-red-400',
+  Justice: 'text-yellow-400',
+  Leadership: 'text-blue-400',
+  Protection: 'text-green-400',
+  Pool: 'text-pink-400',
+  Basic: 'text-[var(--color-text-muted)]',
 };
 
 function formatType(type: string) {
   return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-// Adam Warlock must use all 4 aspects — skip the aspect step for him
-const WARLOCK_ID = '21031a';
 const ALL_ASPECTS = ['Aggression', 'Justice', 'Leadership', 'Protection'];
 
 function serializeDeckCards(deck: Map<string, { quantity: number }>) {
@@ -131,6 +130,9 @@ const TYPE_FILTERS = [
   { value: 'upgrade', label: 'Upgrades' },
 ];
 
+const TYPE_ORDER = TYPE_FILTERS.slice(1).map(f => f.value);
+const TYPE_LABEL = Object.fromEntries(TYPE_FILTERS.slice(1).map(f => [f.value, f.label]));
+
 export default function DeckBuilder() {
   const [step, setStep] = useState<Step>('hero');
   const [heroes, setHeroes] = useState<HeroOption[]>([]);
@@ -141,14 +143,16 @@ export default function DeckBuilder() {
   const [heroSearch, setHeroSearch] = useState('');
   const [cardSearch, setCardSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [aiSuggestion, setAiSuggestion] = useState('');
-  const [aiLoading, setAiLoading] = useState(false);
   const [deckName, setDeckName] = useState('');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [modalCard, setModalCard] = useState<CardPoolItem | null>(null);
   const [heroSide, setHeroSide] = useState<'hero' | 'alter_ego'>('hero');
   const [editDeckId, setEditDeckId] = useState<string | null>(null);
   const [editOriginalSnapshot, setEditOriginalSnapshot] = useState<string | null>(null);
+  const [ownedPacks, setOwnedPacks] = useState<Set<string>>(new Set());
+  const [collectionOnly, setCollectionOnly] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'cards' | 'deck'>('cards');
+  const cardPoolRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const heroesEl = document.getElementById('heroes-data');
@@ -160,6 +164,11 @@ export default function DeckBuilder() {
 
     setHeroes(heroesData);
     setAllCards(cardsData);
+
+    const collectionEl = document.getElementById('collection-data');
+    const ownedData: string[] = collectionEl?.dataset.owned ? JSON.parse(collectionEl.dataset.owned) : [];
+    setOwnedPacks(new Set(ownedData));
+    if (collectionEl?.dataset.hasCollection === 'true') setCollectionOnly(true);
 
     const initialStep = (initialEl?.dataset.step as Step) ?? 'hero';
     setStep(initialStep);
@@ -209,6 +218,14 @@ export default function DeckBuilder() {
     }
   }, []);
 
+  useEffect(() => {
+    setTypeFilter('all');
+  }, [selectedAspects]);
+
+  useEffect(() => {
+    cardPoolRef.current?.scrollTo({ top: 0 });
+  }, [typeFilter, cardSearch]);
+
   const isMultiAspect = !!selectedHero?.isMultiAspect;
 
   const hasChanges = useMemo(() => {
@@ -242,6 +259,13 @@ export default function DeckBuilder() {
 
   const deckEntries = useMemo(() => Array.from(deck.values()), [deck]);
 
+  const filteredHeroes = useMemo(() =>
+    heroes
+      .filter(h => !collectionOnly || (h.packCode ? ownedPacks.has(h.packCode) : false))
+      .filter(h => !heroSearch || h.name.toLowerCase().includes(heroSearch.toLowerCase())),
+    [heroes, collectionOnly, ownedPacks, heroSearch],
+  );
+
   const totalDeckSize = useMemo(
     () => deckEntries.reduce((sum, e) => sum + e.quantity, 0),
     [deckEntries],
@@ -252,12 +276,13 @@ export default function DeckBuilder() {
     const activeAspects = new Set(['Basic', ...selectedAspects]);
     return allCards
       .filter(card => {
-        if (card.heroId) return false; // hero-specific cards are pre-populated, not shown in pool
+        if (card.heroId) return false;
         return card.aspect ? activeAspects.has(card.aspect) : false;
       })
-      .filter(card => (typeFilter === 'all' ? true : card.type === typeFilter))
+      .filter(card => !collectionOnly || card.packCodes.some(c => ownedPacks.has(c)))
+      .filter(card => typeFilter === 'all' || card.type === typeFilter)
       .filter(card => !cardSearch || card.name.toLowerCase().includes(cardSearch.toLowerCase()));
-  }, [allCards, selectedHero, selectedAspects, cardSearch, typeFilter]);
+  }, [allCards, selectedHero, selectedAspects, cardSearch, typeFilter, collectionOnly, ownedPacks]);
 
   function addCard(card: CardPoolItem) {
     setDeck(prev => {
@@ -282,58 +307,6 @@ export default function DeckBuilder() {
       else next.set(cardId, { ...entry, quantity: entry.quantity - 1 });
       return next;
     });
-  }
-
-  async function handleAiSuggest() {
-    if (!selectedHero) return;
-    setAiLoading(true);
-    setAiSuggestion('');
-
-    const currentDeck = deckEntries.map(e => ({
-      cardId: e.card.id,
-      name: e.card.name,
-      quantity: e.quantity,
-    }));
-
-    const cardPool = filteredPool.slice(0, 150).map(c => ({
-      id: c.id,
-      name: c.name,
-      type: c.type,
-      aspect: c.aspect,
-      cost: c.cost,
-      traits: c.traits,
-      text: c.text ? c.text.substring(0, 100) : null,
-    }));
-
-    try {
-      const resp = await fetch('/api/builder/suggest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          heroName: selectedHero.name,
-          aspects: selectedAspects,
-          currentDeck,
-          cardPool,
-        }),
-      });
-
-      if (!resp.ok || !resp.body) {
-        setAiSuggestion('Failed to get suggestions. Please try again.');
-        return;
-      }
-
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        setAiSuggestion(prev => prev + decoder.decode(value));
-      }
-    } catch {
-      setAiSuggestion('Error connecting to AI. Please try again.');
-    } finally {
-      setAiLoading(false);
-    }
   }
 
   async function doSave(asNew = false) {
@@ -362,20 +335,20 @@ export default function DeckBuilder() {
   // ── Step 1: Hero selection ────────────────────────────────────────────────
 
   if (step === 'hero') {
-    const filteredHeroes = heroes.filter(
-      h => !heroSearch || h.name.toLowerCase().includes(heroSearch.toLowerCase()),
-    );
     return (
       <div>
         <h1 className="mb-1 text-3xl font-bold">Build a Deck</h1>
         <p className="mb-6 text-[var(--color-text-muted)]">Step 1 of 3 — Choose your hero</p>
-        <input
-          type="text"
-          placeholder="Search heroes..."
-          value={heroSearch}
-          onChange={e => setHeroSearch(e.target.value)}
-          className="mb-6 w-full max-w-sm rounded border border-white/10 bg-[var(--color-surface)] px-4 py-2 text-sm outline-none focus:ring-1 focus:ring-[var(--color-secondary)]"
-        />
+        <div className="mb-6 flex items-center gap-3">
+          <input
+            type="text"
+            placeholder="Search heroes..."
+            value={heroSearch}
+            onChange={e => setHeroSearch(e.target.value)}
+            className="w-full max-w-sm rounded border border-white/10 bg-[var(--color-surface)] px-4 py-2 text-sm outline-none focus:ring-1 focus:ring-[var(--color-secondary)]"
+          />
+          <OwnedOnlyButton active={collectionOnly} onClick={() => setCollectionOnly(v => !v)} />
+        </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {filteredHeroes.map(hero => {
             const primary =
@@ -417,6 +390,8 @@ export default function DeckBuilder() {
   // ── Step 2: Aspect selection ──────────────────────────────────────────────
 
   if (step === 'aspect') {
+    const ownsDeadpool = ownedPacks.has('deadpool');
+    const visibleAspects = ASPECTS.filter(a => a !== 'Pool' || !collectionOnly || ownsDeadpool);
     return (
       <div className="mx-auto max-w-lg">
         <button
@@ -426,9 +401,12 @@ export default function DeckBuilder() {
           ← Back
         </button>
         <h1 className="mb-1 text-3xl font-bold">Build a Deck</h1>
-        <p className="mb-1 text-[var(--color-text-muted)]">
-          Step 2 of 3 — Choose your aspect{isMultiAspect ? 's' : ''}
-        </p>
+        <div className="mb-1 flex items-center justify-between">
+          <p className="text-[var(--color-text-muted)]">
+            Step 2 of 3 — Choose your aspect{isMultiAspect ? 's' : ''}
+          </p>
+          <OwnedOnlyButton active={collectionOnly} onClick={() => setCollectionOnly(v => !v)} />
+        </div>
         <p className="mb-6 text-sm text-[var(--color-text-muted)]">
           Building with <strong className="text-[var(--color-text)]">{selectedHero?.name}</strong>.{' '}
           {isMultiAspect
@@ -436,7 +414,7 @@ export default function DeckBuilder() {
             : 'Pick 1 aspect — Basic is always included.'}
         </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {ASPECTS.map(aspect => {
+          {visibleAspects.map(aspect => {
             const isSelected = selectedAspects.includes(aspect);
             return (
               <button
@@ -473,9 +451,6 @@ export default function DeckBuilder() {
   }
 
   // ── Step 3: Editor ────────────────────────────────────────────────────────
-
-  const heroSpecificEntries = deckEntries.filter(e => !!e.card.heroId);
-  const nonHeroEntries = deckEntries.filter(e => !e.card.heroId);
 
   const saveLabel =
     saveStatus === 'saving' ? 'Saving…' :
@@ -535,9 +510,24 @@ export default function DeckBuilder() {
         </button>
       </div>
 
-      <div className="flex flex-col gap-4 lg:flex-row">
+      <div className="mb-3 flex rounded-lg border border-white/10 lg:hidden">
+        <button
+          onClick={() => setMobileTab('cards')}
+          className={`flex-1 rounded-l-lg py-2.5 text-sm font-medium transition ${mobileTab === 'cards' ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-surface)]'}`}
+        >
+          Cards
+        </button>
+        <button
+          onClick={() => setMobileTab('deck')}
+          className={`flex-1 rounded-r-lg py-2.5 text-sm font-medium transition ${mobileTab === 'deck' ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-surface)]'}`}
+        >
+          Deck ({totalDeckSize} / 40)
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
         {/* ── Left: Card Pool ── */}
-        <div className="flex flex-1 flex-col gap-3 min-w-0">
+        <div className={`${mobileTab === 'deck' ? 'hidden lg:flex' : 'flex'} min-w-0 flex-col gap-3`} style={{ flex: '0 1 56rem' }}>
           <div className="flex flex-wrap items-center gap-2">
             <input
               type="text"
@@ -546,25 +536,31 @@ export default function DeckBuilder() {
               onChange={e => setCardSearch(e.target.value)}
               className="flex-1 rounded border border-white/10 bg-[var(--color-surface)] px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-[var(--color-secondary)]"
             />
+            <OwnedOnlyButton active={collectionOnly} onClick={() => setCollectionOnly(v => !v)} />
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {TYPE_FILTERS.map(f => (
-              <button
-                key={f.value}
-                onClick={() => setTypeFilter(f.value)}
-                className={`rounded px-2.5 py-1 text-xs font-medium transition ${
-                  typeFilter === f.value
-                    ? 'bg-[var(--color-primary)] text-white'
-                    : 'bg-white/5 hover:bg-white/10'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center justify-between gap-1.5">
+            <div className="flex flex-wrap gap-1.5">
+              {TYPE_FILTERS.map(f => (
+                <button
+                  key={f.value}
+                  onClick={() => setTypeFilter(f.value)}
+                  className={`rounded px-2.5 py-1 text-xs font-medium transition ${
+                    typeFilter === f.value
+                      ? 'bg-[var(--color-primary)] text-white'
+                      : 'bg-white/5 hover:bg-white/10'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <span className="text-xs text-[var(--color-text-muted)]">
+              {sortedPool.length} card{sortedPool.length !== 1 ? 's' : ''}
+            </span>
           </div>
 
           <div className="overflow-hidden rounded border border-white/10">
-            <div className="max-h-[calc(100vh-300px)] overflow-y-auto pr-1">
+            <div ref={cardPoolRef} className="max-h-[calc(100vh-300px)] overflow-y-auto pr-1">
               {sortedPool.length === 0 ? (
                 <p className="p-4 text-center text-sm text-[var(--color-text-muted)]">
                   No cards found
@@ -581,7 +577,7 @@ export default function DeckBuilder() {
                     <tr>
                       <th className="px-3 py-2 text-left">Card</th>
                       <th className="px-2 py-2 text-center">Cost</th>
-                      <th className="px-2 py-2 text-center">Owned</th>
+                      <th className="px-2 py-2 text-center">Left</th>
                       <th className="px-2 py-2 text-right"></th>
                     </tr>
                   </thead>
@@ -592,8 +588,8 @@ export default function DeckBuilder() {
                       const atLimit = inDeck >= limit;
                       const atDeckCap = totalDeckSize >= 50 && inDeck === 0;
                       return (
-                        <tr key={card.id} className="border-t border-white/5 hover:bg-white/[0.03]">
-                          <td className="px-3 py-2">
+                        <tr key={card.id} className={`border-t border-white/5 ${inDeck > 0 ? 'bg-[var(--color-primary)]/10 hover:bg-[var(--color-primary)]/15' : 'hover:bg-white/[0.03]'}`}>
+                          <td className={`py-2 ${inDeck > 0 ? 'border-l-2 border-[var(--color-primary)] pl-[10px] pr-3' : 'px-3'}`}>
                             <div className="flex items-center gap-2">
                               {card.aspect && (
                                 <span
@@ -726,7 +722,7 @@ export default function DeckBuilder() {
         </div>
 
         {/* ── Right: Deck Panel ── */}
-        <div className="flex w-full flex-col gap-3 lg:w-80 lg:flex-shrink-0">
+        <div className={`${mobileTab === 'cards' ? 'hidden lg:flex' : 'flex'} w-full flex-col gap-3 lg:w-96 lg:flex-shrink-0`}>
           {/* Hero card */}
           {selectedHero && (() => {
             const shownIdentity = selectedHero.identities.find(i =>
@@ -754,7 +750,7 @@ export default function DeckBuilder() {
             );
           })()}
           {/* Deck stats */}
-          <div className="rounded-lg border border-white/10 bg-[var(--color-surface)] p-4">
+          <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-white/10 bg-[var(--color-surface)] p-4">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="font-semibold">Deck</h2>
               <span
@@ -776,55 +772,26 @@ export default function DeckBuilder() {
               />
             </div>
 
-            <div className="max-h-72 overflow-y-auto pr-1">
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
               {deckEntries.length === 0 ? (
                 <p className="py-4 text-center text-xs text-[var(--color-text-muted)]">
                   No cards added yet
                 </p>
               ) : (
-                <div className="space-y-1">
-                  {heroSpecificEntries.length > 0 && (
-                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-                      Hero Cards (Required)
-                    </p>
-                  )}
-                  {heroSpecificEntries.map(e => (
-                    <DeckRow key={e.card.id} entry={e} onAdd={addCard} onRemove={removeCard} onCardClick={setModalCard} isHero />
-                  ))}
-                  {heroSpecificEntries.length > 0 && nonHeroEntries.length > 0 && (
-                    <hr className="my-1 border-white/10" />
-                  )}
-                  {nonHeroEntries.map(e => (
-                    <DeckRow key={e.card.id} entry={e} onAdd={addCard} onRemove={removeCard} onCardClick={setModalCard} />
+                <div className="space-y-2">
+                  {TYPE_ORDER.filter(type => deckEntries.some(e => e.card.type === type)).map(type => (
+                    <div key={type}>
+                      <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+                        {TYPE_LABEL[type]}
+                      </p>
+                      {deckEntries.filter(e => e.card.type === type).map(e => (
+                        <DeckRow key={e.card.id} entry={e} onAdd={addCard} onRemove={removeCard} onCardClick={setModalCard} />
+                      ))}
+                    </div>
                   ))}
                 </div>
               )}
             </div>
-          </div>
-
-
-          {/* AI Suggestions */}
-          <div className="rounded-lg border border-white/10 bg-[var(--color-surface)] p-4">
-            <h2 className="mb-3 font-semibold">AI Suggestions</h2>
-            <button
-              onClick={handleAiSuggest}
-              disabled={aiLoading || totalDeckSize === 0}
-              className="w-full rounded bg-[var(--color-secondary)] px-4 py-2 text-sm font-medium transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {aiLoading ? 'Thinking…' : 'Get AI Suggestions'}
-            </button>
-            {!aiSuggestion && !aiLoading && totalDeckSize === 0 && (
-              <p className="mt-2 text-xs text-[var(--color-text-muted)]">
-                Add some cards to get suggestions
-              </p>
-            )}
-            {aiSuggestion && (
-              <div className="mt-3 max-h-56 overflow-y-auto rounded bg-black/30 p-3">
-                <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-[var(--color-text-muted)]">
-                  {aiSuggestion}
-                </pre>
-              </div>
-            )}
           </div>
 
           {/* Save */}
@@ -860,6 +827,7 @@ export default function DeckBuilder() {
               <p className="mt-2 text-xs text-green-400">{editDeckId ? 'Deck updated!' : 'Deck saved!'}</p>
             )}
           </div>
+
         </div>
       </div>
       <CardModal card={modalCard} onClose={() => setModalCard(null)} />
@@ -872,48 +840,54 @@ function DeckRow({
   onAdd,
   onRemove,
   onCardClick,
-  isHero = false,
 }: {
   entry: DeckEntry;
   onAdd: (card: CardPoolItem) => void;
   onRemove: (id: string) => void;
   onCardClick: (card: CardPoolItem) => void;
-  isHero?: boolean;
 }) {
+  const isHero = !!entry.card.heroId;
+  const nameColor = isHero
+    ? 'text-white'
+    : (ASPECT_TEXT_COLOR[entry.card.aspect ?? ''] ?? '');
   return (
-    <div className="flex items-center justify-between gap-1 text-xs">
-      <div className="flex min-w-0 items-center gap-1.5">
-        <span className={`w-3 flex-shrink-0 text-center text-[10px] font-bold leading-none ${TYPE_TEXT_COLOR[entry.card.type] ?? 'text-gray-400'}`}>
-          {entry.card.type === 'player_side_scheme' ? 'P' : entry.card.type[0].toUpperCase()}
-        </span>
-        <button
-          onClick={() => onCardClick(entry.card)}
-          className={`truncate text-left hover:underline ${isHero ? 'text-yellow-300' : ''}`}
-        >
-          {entry.card.name}
-        </button>
-      </div>
-      <div className="flex flex-shrink-0 items-center gap-1">
-        {isHero ? (
-          <span className="w-4 text-center font-bold text-yellow-300/60">{entry.quantity}</span>
-        ) : (
-          <>
-            <button
-              onClick={() => onRemove(entry.card.id)}
-              className="text-white/40 hover:text-white/80"
-            >
-              −
-            </button>
-            <span className="w-4 text-center font-bold">{entry.quantity}</span>
-            <button
-              onClick={() => onAdd(entry.card)}
-              className="text-white/40 hover:text-white/80"
-            >
-              +
-            </button>
-          </>
-        )}
-      </div>
+    <div className="group flex items-center gap-1.5 text-xs">
+      <span className={`w-3 flex-shrink-0 text-right font-bold ${isHero ? 'text-white/50' : 'text-[var(--color-text-muted)]'}`}>
+        {entry.quantity}
+      </span>
+      <button
+        onClick={() => onCardClick(entry.card)}
+        className={`min-w-0 flex-1 truncate text-left hover:underline ${nameColor}`}
+      >
+        {entry.card.name}
+      </button>
+      {!isHero && (
+        <div className="flex flex-shrink-0 items-center gap-0.5 transition-opacity lg:opacity-0 lg:group-hover:opacity-100">
+          <button
+            onClick={() => onRemove(entry.card.id)}
+            className="flex h-5 w-5 items-center justify-center rounded text-white/50 hover:bg-white/10 hover:text-white"
+          >
+            −
+          </button>
+          <button
+            onClick={() => onAdd(entry.card)}
+            className="flex h-5 w-5 items-center justify-center rounded text-white/50 hover:bg-white/10 hover:text-white"
+          >
+            +
+          </button>
+        </div>
+      )}
     </div>
+  );
+}
+
+function OwnedOnlyButton({ active, onClick }: { active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`shrink-0 rounded px-2.5 py-1.5 text-xs font-medium transition hover:opacity-90 ${active ? 'bg-[var(--color-primary)]' : 'bg-white/10'}`}
+    >
+      Owned only
+    </button>
   );
 }
