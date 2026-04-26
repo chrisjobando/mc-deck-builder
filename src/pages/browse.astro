@@ -2,6 +2,8 @@
 import Layout from '../layouts/Layout.astro';
 import { prisma } from '../lib/db';
 import type { HeroCard, HeroIdentity, DeckCard } from '../lib/db';
+import { CYCLES, ALWAYS_OWNED_CODES } from '../lib/packs';
+import { getUser, getUserOwnedPacks } from '../lib/auth';
 
 // Fetch all cards with full data using Prisma
 const heroes = await prisma.heroCard.findMany({ orderBy: { name: 'asc' } });
@@ -21,11 +23,12 @@ const identitiesByHero = identities.reduce<Record<string, HeroIdentity[]>>((acc:
 const heroNameById = new Map<string, string>();
 heroes.forEach((h: HeroCard) => heroNameById.set(h.id, h.name));
 
-// Get unique packs
-const allPacks = [...new Set([
-  ...heroes.map((h: HeroCard) => h.packName),
-  ...cards.map((c: DeckCard) => c.packName)
-])].filter(Boolean).sort();
+// Load user's collection for "My Collection" quick filter
+const user = await getUser(Astro);
+const ownedPackCodes = user?.id ? await getUserOwnedPacks(user.id as string) : [];
+const myCollectionCodes = [...ALWAYS_OWNED_CODES, ...ownedPackCodes];
+const myCollectionSet = new Set(myCollectionCodes);
+const isLoggedIn = user != null;
 
 // Consolidate deck cards that appear in multiple packs (group by name + text)
 const cardsByKey = new Map<string, DeckCard[]>();
@@ -140,6 +143,14 @@ const allCards = [
 // Split cards - displayCards excludes hero-specific, allCards includes all for modal
 const displayCards = allCards.filter(c => !c.heroId);
 
+// Pack codes that actually have cards in the grid (some scenario packs include player cards)
+const packCodesInGrid = new Set<string>();
+for (const card of displayCards) {
+  for (const p of card.packs) {
+    if (p.code) packCodesInGrid.add(p.code);
+  }
+}
+
 // Build a lookup of heroId → lowercased names of their hero-specific cards (for search)
 const heroSpecificNamesByHeroId = new Map<string, string>();
 for (const card of allCards) {
@@ -177,39 +188,35 @@ const ASPECT_FILTERS = [
 <Layout title="Browse Cards">
   <div class="mb-6">
     <h1 class="text-3xl font-bold mb-4">Browse Cards</h1>
-    <p class="text-[var(--color-text-muted)] mb-4">
-      {displayCards.length} cards loaded from {allPacks.length} packs
-    </p>
     
     <!-- Pack Filter -->
-    <details class="bg-[var(--color-surface)] rounded-lg p-4 mb-6">
-      <summary class="cursor-pointer font-semibold">Filter by Pack ({allPacks.length} packs)</summary>
-      <div class="mt-4 flex flex-wrap gap-2" id="pack-filters">
-        <button 
-          id="select-all-btn"
-          class="text-sm px-3 py-1 rounded inline-flex items-center justify-center leading-none bg-[var(--color-primary)] hover:opacity-80"
-        >
-          Select All
-        </button>
-        <button 
-          id="select-none-btn"
-          class="text-sm px-3 py-1 rounded inline-flex items-center justify-center leading-none bg-white/10 hover:bg-white/20"
-        >
-          Select None
-        </button>
+    <details class="bg-[var(--color-surface)] rounded-lg p-4 mb-6" id="pack-filter-details">
+      <summary class="cursor-pointer font-semibold">Filter by Pack</summary>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button id="select-all-btn" class={`text-sm px-3 py-1 rounded inline-flex items-center justify-center leading-none hover:opacity-80 ${!isLoggedIn ? 'bg-[var(--color-primary)]' : 'bg-white/10'}`}>All</button>
+        {isLoggedIn && (
+          <button id="my-collection-btn" class="text-sm px-3 py-1 rounded inline-flex items-center justify-center leading-none bg-[var(--color-primary)] hover:opacity-80">My Collection</button>
+        )}
+        <button id="select-none-btn" class="text-sm px-3 py-1 rounded inline-flex items-center justify-center leading-none bg-white/10 hover:opacity-80">None</button>
       </div>
-      <div class="mt-3 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2" id="pack-checkboxes">
-        {allPacks.map(pack => (
-          <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-[var(--color-primary)]">
-            <input 
-              type="checkbox" 
-              class="pack-filter" 
-              value={pack} 
-              checked 
-            />
-            <span class="truncate">{pack}</span>
-          </label>
-        ))}
+      <div class="mt-4 space-y-4">
+        {CYCLES.map(cycle => {
+          const playerPacks = cycle.packs.filter(p => p.type !== 'scenario' || packCodesInGrid.has(p.code));
+          if (playerPacks.length === 0) return null;
+          return (
+            <div>
+              <h3 class="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mb-2">{cycle.name}</h3>
+              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1">
+                {playerPacks.map(pack => (
+                  <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-[var(--color-primary)]">
+                    <input type="checkbox" class="pack-filter h-3.5 w-3.5 accent-[var(--color-primary)]" value={pack.code} checked={!isLoggedIn || myCollectionSet.has(pack.code)} />
+                    <span class="truncate">{pack.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </details>
 
@@ -256,8 +263,8 @@ const ASPECT_FILTERS = [
     {displayCards.map(card => (
       <div 
         class="card-item bg-[var(--color-surface)] rounded-lg overflow-hidden hover:ring-2 hover:ring-[var(--color-primary)] transition-all cursor-pointer"
-        data-pack={card.packName}
-        data-packs={JSON.stringify(card.packs?.map((p: {name: string | null}) => p.name) || [])}
+        data-packs={JSON.stringify(card.packs?.map((p: {code: string | null}) => p.code).filter(Boolean) || [])}
+        data-pack={card.packCode}
         data-type={card.type}
         data-aspect={card.aspect || ''}
         data-name={card.name.toLowerCase()}
@@ -331,6 +338,7 @@ const ASPECT_FILTERS = [
 </Layout>
 
 <div id="cards-data" data-cards={cardsJson} class="hidden"></div>
+<div id="owned-packs-data" data-collection={JSON.stringify(myCollectionCodes)} class="hidden"></div>
 
 <script>
   const cardItems = document.querySelectorAll('.card-item');
@@ -340,6 +348,7 @@ const ASPECT_FILTERS = [
   const searchInput = document.getElementById('search-input') as HTMLInputElement;
   const cardCount = document.getElementById('card-count');
   const selectAllBtn = document.getElementById('select-all-btn');
+  const myCollectionBtn = document.getElementById('my-collection-btn');
   const selectNoneBtn = document.getElementById('select-none-btn');
   const modal = document.getElementById('card-modal');
   const modalContent = document.getElementById('modal-content');
@@ -348,6 +357,9 @@ const ASPECT_FILTERS = [
   const allCardsData = JSON.parse(
     (document.getElementById('cards-data') as HTMLElement).dataset.cards ?? '[]'
   ) as any[];
+  const myCollectionCodes = new Set<string>(JSON.parse(
+    (document.getElementById('owned-packs-data') as HTMLElement)?.dataset.collection ?? '[]'
+  ));
 
   // Cache parsed packs for each card element to avoid repeated JSON.parse in filterCards
   const cardPacksCache = new Map<Element, string[]>();
@@ -381,6 +393,7 @@ const ASPECT_FILTERS = [
 
   function filterCards() {
     const selectedPacks = getSelectedPacks();
+    const allSelected = Array.from(packFilters).every(cb => (cb as HTMLInputElement).checked);
     let visibleCount = 0;
 
     cardItems.forEach(item => {
@@ -392,10 +405,9 @@ const ASPECT_FILTERS = [
       const name = el.dataset.name || '';
       const heroCards = el.dataset.heroCards || '';
 
-      // Check if any of the card's packs match selected packs
-      const packMatch = packs.length > 0
+      const packMatch = allSelected || (packs.length > 0
         ? packs.some(p => selectedPacks.has(p))
-        : selectedPacks.has(pack);
+        : selectedPacks.has(pack));
       const typeMatch = selectedType === 'all' || type === selectedType;
       const aspectMatch = selectedAspect === 'all' || aspect === selectedAspect;
       const q = searchQuery.toLowerCase();
@@ -414,9 +426,17 @@ const ASPECT_FILTERS = [
     }
   }
 
+  function setActiveQuickFilter(activeBtn: HTMLElement | null) {
+    [selectAllBtn, myCollectionBtn, selectNoneBtn].forEach(btn => {
+      if (!btn) return;
+      btn.classList.toggle('bg-[var(--color-primary)]', btn === activeBtn);
+      btn.classList.toggle('bg-white/10', btn !== activeBtn);
+    });
+  }
+
   // Pack filter listeners
   packFilters.forEach(cb => {
-    cb.addEventListener('change', filterCards);
+    cb.addEventListener('change', () => { setActiveQuickFilter(null); filterCards(); });
   });
 
   // Type filter listeners
@@ -472,11 +492,22 @@ const ASPECT_FILTERS = [
   // Select all/none
   selectAllBtn?.addEventListener('click', () => {
     packFilters.forEach(cb => (cb as HTMLInputElement).checked = true);
+    setActiveQuickFilter(selectAllBtn);
+    filterCards();
+  });
+
+  myCollectionBtn?.addEventListener('click', () => {
+    packFilters.forEach(cb => {
+      const checkbox = cb as HTMLInputElement;
+      checkbox.checked = myCollectionCodes.has(checkbox.value);
+    });
+    setActiveQuickFilter(myCollectionBtn);
     filterCards();
   });
 
   selectNoneBtn?.addEventListener('click', () => {
     packFilters.forEach(cb => (cb as HTMLInputElement).checked = false);
+    setActiveQuickFilter(selectNoneBtn);
     filterCards();
   });
 
@@ -520,8 +551,6 @@ const ASPECT_FILTERS = [
   }
 
   let currentCardId: string | null = null;
-  let currentIdentityIndex = 0;
-  let currentArtIndex = 0; // Track current art variant for deck cards
   let parentHeroId: string | null = null;
   let parentPage: 'hero-cards' | null = null;
 
@@ -655,8 +684,8 @@ const ASPECT_FILTERS = [
           <div class="flex flex-wrap gap-4 text-sm text-[var(--color-text-muted)]">
             <div><strong>${card.packs?.length > 1 ? 'Packs' : 'Pack'}:</strong>
               ${card.packs?.length > 1
-                ? card.packs.map((p: any) => `<span class="filter-pill cursor-pointer hover:text-[var(--color-primary)] underline" data-filter-pack="${p.name}">${p.name}</span>`).join(', ')
-                : `<span class="filter-pill cursor-pointer hover:text-[var(--color-primary)] underline" data-filter-pack="${card.packName}">${card.packName}</span>`}
+                ? card.packs.map((p: any) => `<span class="filter-pill cursor-pointer hover:text-[var(--color-primary)] underline" data-filter-pack="${p.code}">${p.name}</span>`).join(', ')
+                : `<span class="filter-pill cursor-pointer hover:text-[var(--color-primary)] underline" data-filter-pack="${card.packCode}">${card.packName}</span>`}
             </div>
           </div>
 
@@ -670,7 +699,6 @@ const ASPECT_FILTERS = [
     toggleButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         const idx = parseInt((btn as HTMLElement).dataset.index || '0');
-        currentIdentityIndex = idx;
         if (currentCardId) {
           const c = allCardsData.find((x: any) => x.id === currentCardId);
           if (c) renderHeroModal(c, idx);
@@ -746,17 +774,14 @@ const ASPECT_FILTERS = [
     if (!card || !modalContent || !modal) return;
 
     currentCardId = cardId;
-    currentIdentityIndex = 0;
 
     const isHero = card.type === 'hero';
-    
+
     if (isHero) {
       parentHeroId = null;
       parentPage = null;
       renderHeroModal(card, 0);
     } else {
-      // Deck card
-      currentArtIndex = 0;
       renderDeckCardModal(card, 0);
     }
 
@@ -897,9 +922,9 @@ const ASPECT_FILTERS = [
             </div>
             <div class="text-sm text-[var(--color-text-muted)] mt-2">
               <strong>${card.packs?.length > 1 ? 'Packs' : 'Pack'}:</strong> 
-              ${card.packs?.length > 1 
-                ? card.packs.map((p: any) => `<span class="filter-pill cursor-pointer hover:text-[var(--color-primary)] underline" data-filter-pack="${p.name}">${p.name}</span>`).join(', ') 
-                : `<span class="filter-pill cursor-pointer hover:text-[var(--color-primary)] underline" data-filter-pack="${card.packName}">${card.packName}</span>`}
+              ${card.packs?.length > 1
+                ? card.packs.map((p: any) => `<span class="filter-pill cursor-pointer hover:text-[var(--color-primary)] underline" data-filter-pack="${p.code}">${p.name}</span>`).join(', ')
+                : `<span class="filter-pill cursor-pointer hover:text-[var(--color-primary)] underline" data-filter-pack="${card.packCode}">${card.packName}</span>`}
             </div>
           </div>
         </div>
@@ -932,7 +957,6 @@ const ASPECT_FILTERS = [
       artToggleButtons.forEach(btn => {
         btn.addEventListener('click', () => {
           const idx = parseInt((btn as HTMLElement).dataset.artIndex || '0');
-          currentArtIndex = idx;
           if (currentCardId) {
             const c = allCardsData.find((x: any) => x.id === currentCardId);
             if (c) renderDeckCardModal(c, idx);
@@ -993,12 +1017,12 @@ const ASPECT_FILTERS = [
         
         // Handle pack filter
         if (el.dataset.filterPack) {
-          const packName = el.dataset.filterPack;
-          // Uncheck all packs, then check only the selected one
+          const packCode = el.dataset.filterPack;
           packFilters.forEach(cb => {
             const checkbox = cb as HTMLInputElement;
-            checkbox.checked = checkbox.value === packName;
+            checkbox.checked = checkbox.value === packCode;
           });
+          (document.getElementById('pack-filter-details') as HTMLDetailsElement)?.setAttribute('open', '');
           closeModal();
           filterCards();
         }

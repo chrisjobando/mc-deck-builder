@@ -117,7 +117,7 @@ export const CYCLES: Cycle[] = [
     name: 'Cycle 9 — Agents of S.H.I.E.L.D.',
     packs: [
       { code: 'aos', name: 'Agents of S.H.I.E.L.D.', type: 'expansion' },
-      { code: 'bp', name: 'Black Panther & Shuri', type: 'hero_pack' },
+      { code: 'bp', name: 'Black Panther (Shuri)', type: 'hero_pack' },
       { code: 'silk', name: 'Silk', type: 'hero_pack' },
       { code: 'falcon', name: 'Falcon', type: 'hero_pack' },
       { code: 'winter', name: 'Winter Soldier', type: 'hero_pack' },
@@ -129,9 +129,9 @@ export const CYCLES: Cycle[] = [
     name: 'Cycle 10 — Civil War',
     packs: [
       { code: 'cw', name: 'Civil War', type: 'expansion' },
+      { code: 'synthezoid', name: 'Synthezoid Smackdown', type: 'scenario' },
       { code: 'wonder_man', name: 'Wonder Man', type: 'hero_pack' },
       { code: 'hercules', name: 'Hercules', type: 'hero_pack' },
-      { code: 'synthezoid', name: 'Synthezoid Smackdown', type: 'scenario' },
     ],
   },
   {

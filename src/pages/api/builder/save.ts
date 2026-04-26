@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { requireAuth } from '../../../lib/auth';
 import { prisma } from '../../../lib/db';
+import { Aspect } from '@prisma/client';
 
 export const POST: APIRoute = async context => {
   const authResult = await requireAuth(context);
@@ -38,7 +39,7 @@ export const POST: APIRoute = async context => {
     data: {
       name,
       heroCardId,
-      aspects: aspects as any,
+      aspects: aspects.map(a => a as Aspect),
       cards: cards ?? [],
       isPublic: isPublic ?? false,
       userId: user.id as string,

@@ -1,18 +1,12 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { getUser } from '../lib/auth';
-import { prisma } from '../lib/db';
+import { getUser, getUserOwnedPacks } from '../lib/auth';
 import CollectionGrid from '../components/CollectionGrid';
 
 const user = await getUser(Astro);
 if (!user) return Astro.redirect('/api/auth/signin');
 
-const dbUser = await prisma.user.findUnique({
-  where: { id: user.id as string },
-  select: { ownedPacks: true },
-});
-
-const ownedPacks: string[] = dbUser?.ownedPacks ?? [];
+const ownedPacks = await getUserOwnedPacks(user.id as string);
 ---
 
 <Layout title="My Collection">
