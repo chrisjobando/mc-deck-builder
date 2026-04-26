@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { heroSlug } from '../lib/utils';
 
 function formatCardText(text: string): string {
   return text
@@ -67,11 +68,6 @@ const ASPECT_DOT: Record<string, string> = {
 
 function formatType(t: string) {
   return t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-}
-
-function heroSlug(name: string, id: string): string {
-  const nameSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  return `${nameSlug}-${id}`;
 }
 
 export default function DeckGrid({ decks: initialDecks }: { decks: DeckPreview[] }) {

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import CardModal from './CardModal';
+import { heroSlug } from '../lib/utils';
 
 interface HeroIdentity {
   identityType: string;
@@ -116,9 +117,8 @@ function formatType(type: string) {
 const WARLOCK_ID = '21031a';
 const ALL_ASPECTS = ['Aggression', 'Justice', 'Leadership', 'Protection'];
 
-function heroSlug(name: string, id: string): string {
-  const nameSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  return `${nameSlug}-${id}`;
+function serializeDeckCards(deck: Map<string, { quantity: number }>) {
+  return [...deck.entries()].map(([id, e]) => ({ id, qty: e.quantity })).sort((a, b) => a.id.localeCompare(b.id));
 }
 
 const TYPE_FILTERS = [
@@ -193,7 +193,7 @@ export default function DeckBuilder() {
           setEditDeckId(editId);
           const editName = initialEl?.dataset.editDeckName ?? '';
           setDeckName(editName);
-          const snapshot = JSON.stringify({ name: editName, cards: [...initialDeck.entries()].map(([id, e]) => ({ id, qty: e.quantity })).sort((a, b) => a.id.localeCompare(b.id)) });
+          const snapshot = JSON.stringify({ name: editName, cards: serializeDeckCards(initialDeck) });
           setEditOriginalSnapshot(snapshot);
         } else {
           const editName = initialEl?.dataset.editDeckName;
@@ -215,7 +215,7 @@ export default function DeckBuilder() {
     if (!editDeckId || !editOriginalSnapshot) return true;
     const current = JSON.stringify({
       name: deckName.trim() || `${selectedHero?.name ?? ''} — ${selectedAspects.join('/')}`,
-      cards: [...deck.entries()].map(([id, e]) => ({ id, qty: e.quantity })).sort((a, b) => a.id.localeCompare(b.id)),
+      cards: serializeDeckCards(deck),
     });
     return current !== editOriginalSnapshot;
   }, [editDeckId, editOriginalSnapshot, deckName, deck, selectedHero, selectedAspects]);
@@ -476,7 +476,11 @@ export default function DeckBuilder() {
 
   const heroSpecificEntries = deckEntries.filter(e => !!e.card.heroId);
   const nonHeroEntries = deckEntries.filter(e => !e.card.heroId);
-  const nonHeroTotal = nonHeroEntries.reduce((s, e) => s + e.quantity, 0);
+
+  const saveLabel =
+    saveStatus === 'saving' ? 'Saving…' :
+    saveStatus === 'saved' ? (editDeckId ? 'Updated!' : 'Saved!') :
+    editDeckId ? 'Update Deck' : 'Save Deck';
 
   const typeBreakdown = Object.entries(
     deckEntries.reduce<Record<string, number>>((acc, e) => {
@@ -838,7 +842,7 @@ export default function DeckBuilder() {
               disabled={saveStatus === 'saving' || totalDeckSize < 40 || totalDeckSize > 50 || !hasChanges}
               className="w-full rounded bg-[var(--color-primary)] px-4 py-2 text-sm font-medium transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? (editDeckId ? 'Updated!' : 'Saved!') : (editDeckId ? 'Update Deck' : 'Save Deck')}
+              {saveLabel}
             </button>
             {editDeckId && (
               <button

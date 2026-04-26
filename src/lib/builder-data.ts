@@ -1,9 +1,5 @@
 import { prisma } from './db';
-
-export function heroSlug(name: string, id: string): string {
-  const nameSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  return `${nameSlug}-${id}`;
-}
+export { heroSlug } from './utils';
 
 export async function loadBuilderData() {
   const heroes = await prisma.heroCard.findMany({
