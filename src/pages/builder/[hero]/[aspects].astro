@@ -2,6 +2,7 @@
 import Layout from '../../../layouts/Layout.astro';
 import { getUser } from '../../../lib/auth';
 import { loadBuilderData, heroSlug } from '../../../lib/builder-data';
+import { prisma } from '../../../lib/db';
 import DeckBuilder from '../../../components/DeckBuilder';
 
 const user = await getUser(Astro);
@@ -22,7 +23,19 @@ const aspects = aspectsParam
 
 if (aspects.length === 0) return Astro.redirect(`/builder/${heroParam}`);
 
-const title = `${hero.name} — ${aspects.join('/')}`;
+const deckId = Astro.url.searchParams.get('deck');
+let editDeck: { id: string; name: string; cards: { cardId: string; quantity: number }[] } | null = null;
+if (deckId) {
+  const found = await prisma.deck.findUnique({
+    where: { id: deckId },
+    select: { id: true, name: true, cards: true, userId: true },
+  });
+  if (found && found.userId === user.id) {
+    editDeck = { id: found.id, name: found.name, cards: found.cards as { cardId: string; quantity: number }[] };
+  }
+}
+
+const title = editDeck ? `Edit — ${hero.name}` : `${hero.name} — ${aspects.join('/')}`;
 ---
 
 <Layout title={title}>
@@ -34,6 +47,9 @@ const title = `${hero.name} — ${aspects.join('/')}`;
     data-step="editor"
     data-hero-id={hero.id}
     data-aspects={aspects.map(a => a.toLowerCase()).join(',')}
+    data-edit-deck-id={editDeck?.id ?? ''}
+    data-edit-deck-name={editDeck?.name ?? ''}
+    data-edit-deck-cards={editDeck ? JSON.stringify(editDeck.cards) : ''}
     class="hidden"
   ></div>
   <DeckBuilder client:load />

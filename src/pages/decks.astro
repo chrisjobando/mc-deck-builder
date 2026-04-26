@@ -58,6 +58,7 @@ const deckPreviews: DeckPreview[] = decks.map(deck => {
   return {
     id: deck.id,
     name: deck.name,
+    heroId: deck.heroCard.id,
     heroName: deck.heroCard.name,
     heroHealth: deck.heroCard.health,
     heroImageUrl: heroIdentity?.imageUrl ?? null,

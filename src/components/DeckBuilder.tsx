@@ -147,6 +147,8 @@ export default function DeckBuilder() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [modalCard, setModalCard] = useState<CardPoolItem | null>(null);
   const [heroSide, setHeroSide] = useState<'hero' | 'alter_ego'>('hero');
+  const [editDeckId, setEditDeckId] = useState<string | null>(null);
+  const [editOriginalSnapshot, setEditOriginalSnapshot] = useState<string | null>(null);
 
   useEffect(() => {
     const heroesEl = document.getElementById('heroes-data');
@@ -167,11 +169,36 @@ export default function DeckBuilder() {
       const hero = heroesData.find(h => h.id === initialHeroId);
       if (hero) {
         setSelectedHero(hero);
+
         const initialDeck = new Map<string, DeckEntry>();
-        for (const card of cardsData.filter(c => c.heroId === initialHeroId)) {
-          initialDeck.set(card.id, { card, quantity: card.deckLimit });
+        const savedCardsJson = initialEl?.dataset.editDeckCards;
+        if (savedCardsJson) {
+          // Editing an existing deck — restore saved card quantities
+          const savedCards: { cardId: string; quantity: number }[] = JSON.parse(savedCardsJson);
+          const cardById = new Map(cardsData.map(c => [c.id, c]));
+          for (const { cardId, quantity } of savedCards) {
+            const card = cardById.get(cardId);
+            if (card) initialDeck.set(card.id, { card, quantity });
+          }
+        } else {
+          // New deck — pre-populate hero-specific cards at their deck limit
+          for (const card of cardsData.filter(c => c.heroId === initialHeroId)) {
+            initialDeck.set(card.id, { card, quantity: card.deckLimit });
+          }
         }
         setDeck(initialDeck);
+
+        const editId = initialEl?.dataset.editDeckId;
+        if (editId) {
+          setEditDeckId(editId);
+          const editName = initialEl?.dataset.editDeckName ?? '';
+          setDeckName(editName);
+          const snapshot = JSON.stringify({ name: editName, cards: [...initialDeck.entries()].map(([id, e]) => ({ id, qty: e.quantity })).sort((a, b) => a.id.localeCompare(b.id)) });
+          setEditOriginalSnapshot(snapshot);
+        } else {
+          const editName = initialEl?.dataset.editDeckName;
+          if (editName) setDeckName(editName);
+        }
 
         const aspectsStr = initialEl?.dataset.aspects;
         if (aspectsStr) {
@@ -183,6 +210,15 @@ export default function DeckBuilder() {
   }, []);
 
   const isMultiAspect = !!selectedHero?.isMultiAspect;
+
+  const hasChanges = useMemo(() => {
+    if (!editDeckId || !editOriginalSnapshot) return true;
+    const current = JSON.stringify({
+      name: deckName.trim() || `${selectedHero?.name ?? ''} — ${selectedAspects.join('/')}`,
+      cards: [...deck.entries()].map(([id, e]) => ({ id, qty: e.quantity })).sort((a, b) => a.id.localeCompare(b.id)),
+    });
+    return current !== editOriginalSnapshot;
+  }, [editDeckId, editOriginalSnapshot, deckName, deck, selectedHero, selectedAspects]);
 
   function selectHero(hero: HeroOption) {
     const slug = heroSlug(hero.name, hero.id);
@@ -300,19 +336,23 @@ export default function DeckBuilder() {
     }
   }
 
-  async function handleSave() {
+  async function doSave(asNew = false) {
     if (!selectedHero || totalDeckSize === 0) return;
     setSaveStatus('saving');
-
     const name = deckName.trim() || `${selectedHero.name} — ${selectedAspects.join('/')}`;
     const cards = deckEntries.map(e => ({ cardId: e.card.id, quantity: e.quantity }));
-
     try {
-      const resp = await fetch('/api/builder/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, heroCardId: selectedHero.id, aspects: selectedAspects, cards, isPublic: false }),
-      });
+      const resp = !asNew && editDeckId
+        ? await fetch(`/api/decks/${editDeckId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, aspects: selectedAspects, cards }),
+          })
+        : await fetch('/api/builder/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, heroCardId: selectedHero.id, aspects: selectedAspects, cards, isPublic: false }),
+          });
       setSaveStatus(resp.ok ? 'saved' : 'error');
     } catch {
       setSaveStatus('error');
@@ -436,8 +476,8 @@ export default function DeckBuilder() {
 
   const heroSpecificEntries = deckEntries.filter(e => !!e.card.heroId);
   const nonHeroEntries = deckEntries.filter(e => !e.card.heroId);
-
   const nonHeroTotal = nonHeroEntries.reduce((s, e) => s + e.quantity, 0);
+
   const typeBreakdown = Object.entries(
     deckEntries.reduce<Record<string, number>>((acc, e) => {
       acc[e.card.type] = (acc[e.card.type] ?? 0) + e.quantity;
@@ -520,7 +560,7 @@ export default function DeckBuilder() {
           </div>
 
           <div className="overflow-hidden rounded border border-white/10">
-            <div className="max-h-[calc(100vh-300px)] overflow-y-auto">
+            <div className="max-h-[calc(100vh-300px)] overflow-y-auto pr-1">
               {sortedPool.length === 0 ? (
                 <p className="p-4 text-center text-sm text-[var(--color-text-muted)]">
                   No cards found
@@ -732,7 +772,7 @@ export default function DeckBuilder() {
               />
             </div>
 
-            <div className="max-h-72 overflow-y-auto">
+            <div className="max-h-72 overflow-y-auto pr-1">
               {deckEntries.length === 0 ? (
                 <p className="py-4 text-center text-xs text-[var(--color-text-muted)]">
                   No cards added yet
@@ -785,7 +825,7 @@ export default function DeckBuilder() {
 
           {/* Save */}
           <div className="rounded-lg border border-white/10 bg-[var(--color-surface)] p-4">
-            <h2 className="mb-3 font-semibold">Save Deck</h2>
+            <h2 className="mb-3 font-semibold">{editDeckId ? 'Update Deck' : 'Save Deck'}</h2>
             <input
               type="text"
               placeholder={`${selectedHero?.name} — ${selectedAspects.join('/')}`}
@@ -794,17 +834,26 @@ export default function DeckBuilder() {
               className="mb-3 w-full rounded border border-white/10 bg-black/30 px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-[var(--color-secondary)]"
             />
             <button
-              onClick={handleSave}
-              disabled={saveStatus === 'saving' || totalDeckSize < 40 || totalDeckSize > 50}
+              onClick={() => doSave()}
+              disabled={saveStatus === 'saving' || totalDeckSize < 40 || totalDeckSize > 50 || !hasChanges}
               className="w-full rounded bg-[var(--color-primary)] px-4 py-2 text-sm font-medium transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved!' : 'Save Deck'}
+              {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? (editDeckId ? 'Updated!' : 'Saved!') : (editDeckId ? 'Update Deck' : 'Save Deck')}
             </button>
+            {editDeckId && (
+              <button
+                onClick={() => doSave(true)}
+                disabled={saveStatus === 'saving' || totalDeckSize < 40 || totalDeckSize > 50}
+                className="mt-2 w-full rounded border border-white/10 px-4 py-2 text-sm font-medium text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-[var(--color-text)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Save as New Deck
+              </button>
+            )}
             {saveStatus === 'error' && (
               <p className="mt-2 text-xs text-red-400">Failed to save. Please try again.</p>
             )}
             {saveStatus === 'saved' && (
-              <p className="mt-2 text-xs text-green-400">Deck saved successfully!</p>
+              <p className="mt-2 text-xs text-green-400">{editDeckId ? 'Deck updated!' : 'Deck saved!'}</p>
             )}
           </div>
         </div>

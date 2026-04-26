@@ -31,6 +31,7 @@ interface PreviewCard {
 export interface DeckPreview {
   id: string;
   name: string;
+  heroId: string;
   heroName: string;
   heroHealth: number;
   heroImageUrl: string | null;
@@ -68,12 +69,18 @@ function formatType(t: string) {
   return t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
+function heroSlug(name: string, id: string): string {
+  const nameSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return `${nameSlug}-${id}`;
+}
+
 export default function DeckGrid({ decks: initialDecks }: { decks: DeckPreview[] }) {
   const [decks, setDecks] = useState(initialDecks);
   const [openDeck, setOpenDeck] = useState<DeckPreview | null>(null);
   const [selectedCard, setSelectedCard] = useState<PreviewCard | null>(null);
   const [heroSide, setHeroSide] = useState<'hero' | 'alter_ego'>('hero');
   const [deleting, setDeleting] = useState(false);
+  const [copying, setCopying] = useState(false);
 
   function openModal(deck: DeckPreview) {
     setOpenDeck(deck);
@@ -84,6 +91,29 @@ export default function DeckGrid({ decks: initialDecks }: { decks: DeckPreview[]
   function closeModal() {
     setOpenDeck(null);
     setSelectedCard(null);
+  }
+
+  async function copyDeck() {
+    if (!openDeck) return;
+    setCopying(true);
+    const res = await fetch('/api/builder/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: `${openDeck.name} (Copy)`,
+        heroCardId: openDeck.heroId,
+        aspects: openDeck.aspects,
+        cards: openDeck.cards.map(c => ({ cardId: c.id, quantity: c.quantity })),
+        isPublic: false,
+      }),
+    });
+    if (res.ok) {
+      const { deckId } = await res.json() as { deckId: string };
+      const copy: DeckPreview = { ...openDeck, id: deckId, name: `${openDeck.name} (Copy)`, updatedAt: 'just now' };
+      setDecks(prev => [copy, ...prev]);
+      closeModal();
+    }
+    setCopying(false);
   }
 
   async function deleteDeck() {
@@ -277,6 +307,28 @@ export default function DeckGrid({ decks: initialDecks }: { decks: DeckPreview[]
                   </div>
                 </div>
                 <div className="ml-3 flex flex-shrink-0 items-center gap-2">
+                  <a
+                    href={`/builder/${heroSlug(openDeck.heroName, openDeck.heroId)}/${openDeck.aspects.map(a => a.toLowerCase()).sort().join(',')}?deck=${openDeck.id}`}
+                    className="rounded p-1.5 text-[var(--color-text-muted)] transition hover:bg-white/10 hover:text-[var(--color-text)]"
+                    aria-label="Edit deck"
+                    title="Edit deck"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                    </svg>
+                  </a>
+                  <button
+                    onClick={copyDeck}
+                    disabled={copying}
+                    className="rounded p-1.5 text-[var(--color-text-muted)] transition hover:bg-white/10 hover:text-[var(--color-text)] disabled:opacity-50"
+                    aria-label="Copy deck"
+                    title="Copy deck"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" />
+                      <path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z" />
+                    </svg>
+                  </button>
                   <button
                     onClick={deleteDeck}
                     disabled={deleting}
@@ -296,7 +348,7 @@ export default function DeckGrid({ decks: initialDecks }: { decks: DeckPreview[]
               </div>
 
               {/* Card list */}
-              <div className="flex-1 overflow-y-auto px-4 py-3">
+              <div className="flex-1 overflow-y-auto px-4 py-3 pr-3">
                 {Object.entries(grouped).map(([type, cards]) => (
                   <div key={type} className="mb-4">
                     <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
