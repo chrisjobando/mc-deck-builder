@@ -1,0 +1,27 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getUser } from '../lib/auth';
+import { prisma } from '../lib/db';
+import CollectionGrid from '../components/CollectionGrid';
+
+const user = await getUser(Astro);
+if (!user) return Astro.redirect('/api/auth/signin');
+
+const dbUser = await prisma.user.findUnique({
+  where: { id: user.id as string },
+  select: { ownedPacks: true },
+});
+
+const ownedPacks: string[] = dbUser?.ownedPacks ?? [];
+---
+
+<Layout title="My Collection">
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold">My Collection</h1>
+      <p class="mt-1 text-[var(--color-text-muted)]">Track which packs you own</p>
+    </div>
+  </div>
+
+  <CollectionGrid client:load initialOwned={ownedPacks} />
+</Layout>
