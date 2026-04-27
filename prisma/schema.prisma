@@ -149,12 +149,28 @@ model RulesDocument {
   id        String   @id @default(uuid())
   title     String
   section   String?
-  content   String   // Extracted text from PDF for AI
+  content   String   // Full extracted text from PDF
   fileUrl   String?  @map("file_url")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  chunks    DocumentChunk[]
+
   @@map("rules_documents")
+}
+
+// Document chunks with embeddings for RAG
+model DocumentChunk {
+  id         String   @id @default(uuid())
+  content    String   // Chunk text (~500-1000 chars)
+  chunkIndex Int      @map("chunk_index")
+  // embedding column added via raw SQL (vector(768))
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  documentId String        @map("document_id")
+  document   RulesDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("document_chunks")
 }
 
 // Multiplayer deck-building sessions
