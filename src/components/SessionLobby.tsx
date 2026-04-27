@@ -1,6 +1,8 @@
 import PusherClient from 'pusher-js';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { ASPECT_BG } from '../lib/cardFormatting';
 import type { LobbyParticipant, LobbySession } from '../lib/sessions';
+import { STATUS_COLOR, STATUS_LABEL } from '../lib/sessions';
 import { heroSlug, WARLOCK_ID } from '../lib/utils';
 import { showAlert, showConfirm } from '../lib/dialog';
 
@@ -28,28 +30,6 @@ interface UserDeck {
 
 const ASPECTS = ['Aggression', 'Justice', 'Leadership', 'Protection', 'Pool'] as const;
 
-const ASPECT_BG: Record<string, string> = {
-  Aggression: 'bg-red-700',
-  Justice: 'bg-yellow-600',
-  Leadership: 'bg-blue-700',
-  Protection: 'bg-green-700',
-  Pool: 'bg-pink-700',
-  Basic: 'bg-gray-700',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  draft: 'Lobby',
-  drafting: 'Drafting',
-  building: 'Building',
-  completed: 'Completed',
-};
-
-const STATUS_COLOR: Record<string, string> = {
-  draft: 'bg-white/10 text-gray-400',
-  drafting: 'bg-yellow-500/20 text-yellow-300',
-  building: 'bg-blue-500/20 text-blue-300',
-  completed: 'bg-white/10 text-gray-400',
-};
 
 // ── Ghost slot ────────────────────────────────────────────────────────────────
 

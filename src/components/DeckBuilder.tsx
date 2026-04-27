@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { COST_BUCKETS, formatType, TYPE_COLOR } from '../lib/cardFormatting';
+import { ASPECT_BG, ASPECT_DOT, ASPECT_RING, ASPECT_TEXT_COLOR, COST_BUCKETS, formatType, TYPE_COLOR } from '../lib/cardFormatting';
 import { heroSlug, WARLOCK_ID } from '../lib/utils';
 import CardModal from './CardModal';
 
@@ -107,31 +107,6 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 const ASPECTS = ['Aggression', 'Justice', 'Leadership', 'Protection', 'Pool'] as const;
 
-const ASPECT_BG: Record<string, string> = {
-  Aggression: 'bg-red-700',
-  Justice: 'bg-yellow-600',
-  Leadership: 'bg-blue-700',
-  Protection: 'bg-green-700',
-  Pool: 'bg-pink-700',
-  Basic: 'bg-gray-700',
-};
-
-const ASPECT_RING: Record<string, string> = {
-  Aggression: 'ring-red-400',
-  Justice: 'ring-yellow-400',
-  Leadership: 'ring-blue-400',
-  Protection: 'ring-green-400',
-  Pool: 'ring-pink-400',
-};
-
-const ASPECT_DOT: Record<string, string> = {
-  Aggression: 'bg-red-500',
-  Justice: 'bg-yellow-500',
-  Leadership: 'bg-blue-500',
-  Protection: 'bg-green-500',
-  Pool: 'bg-pink-500',
-  Basic: 'bg-gray-400',
-};
 
 const TYPE_BADGE: Record<string, string> = {
   ally: 'bg-blue-900/80 text-blue-200',
@@ -143,14 +118,6 @@ const TYPE_BADGE: Record<string, string> = {
 };
 
 
-const ASPECT_TEXT_COLOR: Record<string, string> = {
-  Aggression: 'text-red-400',
-  Justice: 'text-yellow-400',
-  Leadership: 'text-blue-400',
-  Protection: 'text-green-400',
-  Pool: 'text-pink-400',
-  Basic: 'text-[var(--color-text-muted)]',
-};
 
 
 const ALL_ASPECTS = ['Aggression', 'Justice', 'Leadership', 'Protection'];

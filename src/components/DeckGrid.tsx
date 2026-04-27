@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { heroSlug } from '../lib/utils';
-import { formatCardText, formatType, TYPE_COLOR, COST_BUCKETS } from '../lib/cardFormatting';
+import { ASPECT_BG, ASPECT_DOT, formatCardText, formatTraits, formatType, TYPE_COLOR, COST_BUCKETS } from '../lib/cardFormatting';
 import { showConfirm } from '../lib/dialog';
 
 interface PreviewCard {
@@ -54,30 +54,7 @@ export interface DeckPreview {
   updatedAt: string;
 }
 
-const ASPECT_BG: Record<string, string> = {
-  Aggression: 'bg-red-700',
-  Justice: 'bg-yellow-600',
-  Leadership: 'bg-blue-700',
-  Protection: 'bg-green-700',
-  Pool: 'bg-pink-700',
-  Basic: 'bg-gray-700',
-};
-
-const ASPECT_DOT: Record<string, string> = {
-  Aggression: 'bg-red-500',
-  Justice: 'bg-yellow-500',
-  Leadership: 'bg-blue-500',
-  Protection: 'bg-green-500',
-  Pool: 'bg-pink-500',
-  Basic: 'bg-gray-400',
-};
-
 const TYPE_ORDER_LIST = ['ally', 'event', 'support', 'upgrade', 'resource', 'player_side_scheme'];
-
-function splitTraits(traits: string | null): string[] {
-  if (!traits) return [];
-  return traits.split('. ').map(t => t.replace(/\.$/, '').trim()).filter(Boolean);
-}
 
 function StatBox({ label, value, color }: { label: string; value: number | null; color: string }) {
   return (
@@ -97,7 +74,7 @@ function HeroDetails({ deck, heroSide }: { deck: DeckPreview; heroSide: 'hero' |
   const def = isAlterEgo ? deck.alterEgoDefense : deck.heroDefense;
   const rec = isAlterEgo ? deck.alterEgoRecover : deck.heroRecover;
   const hnd = isAlterEgo ? deck.alterEgoHandSize : deck.heroHandSize;
-  const traitList = splitTraits(isAlterEgo ? deck.alterEgoTraits : deck.heroTraits);
+  const traitList = formatTraits(isAlterEgo ? deck.alterEgoTraits : deck.heroTraits);
   return (
     <>
       <p className="font-semibold leading-tight">{displayName}</p>
@@ -127,7 +104,7 @@ function HeroDetails({ deck, heroSide }: { deck: DeckPreview; heroSide: 'hero' |
 }
 
 function CardDetails({ card }: { card: PreviewCard }) {
-  const traitList = splitTraits(card.traits);
+  const traitList = formatTraits(card.traits);
   const icons = [
     ...Array(card.resourceEnergy ?? 0).fill('e'),
     ...Array(card.resourceMental ?? 0).fill('m'),

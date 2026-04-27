@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { formatCardText, formatType } from '../lib/cardFormatting';
+import { ASPECT_BG, formatCardText, formatTraits, formatType } from '../lib/cardFormatting';
 
 export interface ModalCard {
   id: string;
@@ -32,20 +32,6 @@ interface Props {
   onClose: () => void;
 }
 
-const ASPECT_BG: Record<string, string> = {
-  Aggression: 'bg-red-700',
-  Justice: 'bg-yellow-600',
-  Leadership: 'bg-blue-700',
-  Protection: 'bg-green-700',
-  Pool: 'bg-pink-700',
-  Basic: 'bg-gray-700',
-};
-
-
-function formatTraits(traits: string | null | undefined): string[] {
-  if (!traits) return [];
-  return traits.split('. ').map(t => t.replace(/\.$/, '').trim()).filter(Boolean);
-}
 
 export default function CardModal({ card, onClose }: Props) {
   useEffect(() => {

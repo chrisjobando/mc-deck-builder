@@ -3,6 +3,7 @@ import Layout from '../layouts/Layout.astro';
 import { getUser } from '../lib/auth';
 import { prisma } from '../lib/db';
 import DeckGrid, { type DeckPreview } from '../components/DeckGrid';
+import { timeAgo } from '../lib/utils';
 
 const user = await getUser(Astro);
 if (!user) return Astro.redirect('/api/auth/signin');
@@ -35,13 +36,6 @@ function cardCount(cards: unknown): number {
   return (cards as { quantity: number }[]).reduce((sum, c) => sum + (c.quantity ?? 0), 0);
 }
 
-function timeAgo(date: Date): string {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
-}
 
 const deckPreviews: DeckPreview[] = decks.map(deck => {
   const rawCards = deck.cards as { cardId: string; quantity: number }[];
