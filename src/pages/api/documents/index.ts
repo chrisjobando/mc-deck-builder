@@ -1,10 +1,10 @@
 import type { APIRoute } from 'astro';
-import { requireAuth } from '../../../lib/auth';
+import { requireAdmin } from '../../../lib/auth';
 import { deleteDocument, listDocuments, processDocument } from '../../../lib/embeddings';
 
 // List all documents
 export const GET: APIRoute = async (context) => {
-  const user = await requireAuth(context);
+  const user = await requireAdmin(context);
   if (!user) {
     return new Response('Unauthorized', { status: 401 });
   }
@@ -22,7 +22,7 @@ export const GET: APIRoute = async (context) => {
 
 // Upload a new document
 export const POST: APIRoute = async (context) => {
-  const user = await requireAuth(context);
+  const user = await requireAdmin(context);
   if (!user) {
     return new Response('Unauthorized', { status: 401 });
   }
@@ -49,7 +49,7 @@ export const POST: APIRoute = async (context) => {
 
 // Delete a document
 export const DELETE: APIRoute = async (context) => {
-  const user = await requireAuth(context);
+  const user = await requireAdmin(context);
   if (!user) {
     return new Response('Unauthorized', { status: 401 });
   }

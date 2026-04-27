@@ -1,0 +1,195 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getUser } from '../../lib/auth';
+import { prisma } from '../../lib/db';
+
+const user = await getUser(Astro);
+
+if (!user) {
+  return Astro.redirect('/api/auth/signin');
+}
+
+// Check if user is admin
+const dbUser = await prisma.user.findUnique({
+  where: { id: user.id },
+  select: { isAdmin: true },
+});
+
+if (!dbUser?.isAdmin) {
+  return Astro.redirect('/');
+}
+
+// Fetch documents
+const documents = await prisma.rulesDocument.findMany({
+  select: {
+    id: true,
+    title: true,
+    section: true,
+    createdAt: true,
+    _count: { select: { chunks: true } },
+  },
+  orderBy: [{ section: 'asc' }, { title: 'asc' }],
+});
+
+// Group documents by section
+const groupedDocs = documents.reduce((acc, doc) => {
+  const section = doc.section || 'Uncategorized';
+  if (!acc[section]) acc[section] = [];
+  acc[section].push(doc);
+  return acc;
+}, {} as Record<string, typeof documents>);
+
+const sections = Object.keys(groupedDocs).sort();
+---
+
+<Layout title="Admin - Documents">
+  <main class="mx-auto max-w-4xl px-4 py-8">
+    <h1 class="mb-6 text-3xl font-bold">Document Management</h1>
+    
+    <!-- Upload Form -->
+    <div class="mb-8 rounded-lg border border-white/10 bg-[var(--color-surface)] p-6">
+      <h2 class="mb-4 text-xl font-semibold">Upload Documents</h2>
+      <form id="upload-form" class="space-y-4">
+        <div>
+          <label for="file" class="mb-1 block text-sm font-medium">Files (PDF or TXT) *</label>
+          <input
+            type="file"
+            id="file"
+            name="file"
+            accept=".pdf,.txt,application/pdf,text/plain"
+            multiple
+            required
+            class="w-full rounded border border-white/10 bg-black/30 px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-[var(--color-primary)] file:px-3 file:py-1 file:text-sm file:font-medium file:text-white"
+          />
+        </div>
+        <div>
+          <label for="section" class="mb-1 block text-sm font-medium">Section (optional)</label>
+          <input
+            type="text"
+            id="section"
+            name="section"
+            class="w-full rounded border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+            placeholder="e.g., Deck Building, Keywords"
+          />
+        </div>
+        <button
+          type="submit"
+          id="upload-btn"
+          class="rounded bg-[var(--color-primary)] px-4 py-2 text-sm font-medium transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Upload & Process
+        </button>
+        <p id="upload-status" class="text-sm"></p>
+      </form>
+    </div>
+    
+    <!-- Documents List -->
+    <div class="rounded-lg border border-white/10 bg-[var(--color-surface)] p-6">
+      <h2 class="mb-4 text-xl font-semibold">Uploaded Documents ({documents.length})</h2>
+      {documents.length === 0 ? (
+        <p class="text-sm text-[var(--color-text-muted)]">No documents uploaded yet.</p>
+      ) : (
+        <div class="space-y-2">
+          {sections.map((section) => (
+            <details class="group rounded border border-white/10 bg-black/20">
+              <summary class="flex cursor-pointer items-center justify-between p-3 font-medium hover:bg-white/5">
+                <span>{section} ({groupedDocs[section].length})</span>
+                <svg class="h-5 w-5 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </summary>
+              <div class="space-y-2 border-t border-white/10 p-3">
+                {groupedDocs[section].map((doc) => (
+                  <div class="flex items-center justify-between rounded border border-white/5 bg-black/20 p-3">
+                    <div>
+                      <h3 class="text-sm font-medium">{doc.title}</h3>
+                      <p class="text-xs text-[var(--color-text-muted)]">
+                        {doc._count.chunks} chunks · {new Date(doc.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <button
+                      class="delete-btn rounded bg-red-600/80 px-2 py-1 text-xs font-medium transition hover:bg-red-600"
+                      data-id={doc.id}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </details>
+          ))}
+        </div>
+      )}
+    </div>
+  </main>
+</Layout>
+
+<script>
+  const form = document.getElementById('upload-form') as HTMLFormElement;
+  const uploadBtn = document.getElementById('upload-btn') as HTMLButtonElement;
+  const statusEl = document.getElementById('upload-status') as HTMLParagraphElement;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(form);
+    const fileInput = document.getElementById('file') as HTMLInputElement;
+    const fileCount = fileInput.files?.length || 0;
+    
+    uploadBtn.disabled = true;
+    statusEl.textContent = `Uploading ${fileCount} file${fileCount > 1 ? 's' : ''}...`;
+    statusEl.className = 'text-sm text-[var(--color-text-muted)]';
+    
+    try {
+      const resp = await fetch('/api/documents/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      const data = await resp.json();
+      
+      if (data.summary) {
+        const { successful, failed, total } = data.summary;
+        if (failed === 0) {
+          const totalChars = data.results.reduce((sum: number, r: { contentLength?: number }) => sum + (r.contentLength || 0), 0);
+          statusEl.textContent = `Success! Processed ${total} file${total > 1 ? 's' : ''} (${totalChars.toLocaleString()} chars total)`;
+          statusEl.className = 'text-sm text-green-400';
+        } else if (successful > 0) {
+          statusEl.textContent = `Partially complete: ${successful}/${total} succeeded`;
+          statusEl.className = 'text-sm text-yellow-400';
+        } else {
+          statusEl.textContent = `Failed: ${data.results.map((r: { error?: string }) => r.error).join(', ')}`;
+          statusEl.className = 'text-sm text-red-400';
+        }
+        
+        if (successful > 0) {
+          form.reset();
+          setTimeout(() => window.location.reload(), 1500);
+        }
+      } else {
+        statusEl.textContent = `Error: ${await resp.text()}`;
+        statusEl.className = 'text-sm text-red-400';
+      }
+    } catch (err) {
+      statusEl.textContent = 'Upload failed. Please try again.';
+      statusEl.className = 'text-sm text-red-400';
+    } finally {
+      uploadBtn.disabled = false;
+    }
+  });
+
+  // Delete buttons
+  document.querySelectorAll('.delete-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = (btn as HTMLButtonElement).dataset.id;
+      if (!confirm('Delete this document and all its chunks?')) return;
+      
+      const resp = await fetch(`/api/documents?id=${id}`, { method: 'DELETE' });
+      if (resp.ok) {
+        window.location.reload();
+      } else {
+        alert('Failed to delete document');
+      }
+    });
+  });
+</script>

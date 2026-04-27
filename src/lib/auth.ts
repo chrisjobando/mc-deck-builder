@@ -1,5 +1,5 @@
-import { getSession } from 'auth-astro/server';
 import type { APIContext } from 'astro';
+import { getSession } from 'auth-astro/server';
 import { prisma } from './db';
 
 export async function getUser(context: APIContext) {
@@ -13,6 +13,18 @@ export async function requireAuth(context: APIContext) {
     return context.redirect('/api/auth/signin');
   }
   return user;
+}
+
+export async function requireAdmin(context: APIContext) {
+  const user = await getUser(context);
+  if (!user?.id) return null;
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { isAdmin: true },
+  });
+
+  return dbUser?.isAdmin ? user : null;
 }
 
 export async function getUserOwnedPacks(userId: string): Promise<string[]> {
