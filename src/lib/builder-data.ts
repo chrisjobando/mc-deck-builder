@@ -14,6 +14,7 @@ export async function loadBuilderData() {
   const cardsByKey = new Map<string, typeof rawCards[0]>();
   const cardPacksMap = new Map<string, Set<string>>();
   const cardPackCodesMap = new Map<string, Set<string>>();
+  const cardAllIdsMap = new Map<string, Set<string>>(); // Track ALL card IDs for each deduped entry
   for (const card of rawCards) {
     const key = `${card.name}|||${card.text ?? ''}|||${card.heroId ?? ''}|||${card.resourceEnergy ?? 0}|${card.resourceMental ?? 0}|${card.resourcePhysical ?? 0}|${card.resourceWild ?? 0}`;
     const existing = cardsByKey.get(key);
@@ -30,6 +31,10 @@ export async function loadBuilderData() {
       s.add(card.packCode);
       cardPackCodesMap.set(key, s);
     }
+    // Track all card IDs (MarvelCDB codes) for this card
+    const ids = cardAllIdsMap.get(key) ?? new Set<string>();
+    ids.add(card.id);
+    cardAllIdsMap.set(key, ids);
   }
 
   const heroOptions = heroes
@@ -75,6 +80,8 @@ export async function loadBuilderData() {
     quantity: c.quantity,
     packs: [...(cardPacksMap.get(key) ?? (c.packName ? [c.packName] : []))].sort(),
     packCodes: [...(cardPackCodesMap.get(key) ?? (c.packCode ? [c.packCode] : []))].sort(),
+    // All MarvelCDB card IDs that map to this deduplicated entry (for import matching)
+    allIds: [...(cardAllIdsMap.get(key) ?? new Set([c.id]))],
   }));
 
   return { heroOptions, cardPool };

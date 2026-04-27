@@ -3,6 +3,34 @@ import { COST_BUCKETS, formatType, TYPE_COLOR } from '../lib/cardFormatting';
 import { heroSlug, WARLOCK_ID } from '../lib/utils';
 import CardModal from './CardModal';
 
+// Markdown + card text formatting for AI responses
+function formatAiResponse(text: string): string {
+  return text
+    // Apply card text formatting first (handles [[bold]], [energy], [wild], etc.)
+    .replace(/\[\[([^\]]+)\]\]/g, '<strong class="uppercase">$1</strong>')
+    .replace(/\[star\]/g, '★')
+    .replace(/\[wild\]/g, '🍃')
+    .replace(/\[energy\]/g, '⚡')
+    .replace(/\[mental\]/g, '🧪')
+    .replace(/\[physical\]/g, '👊')
+    // Convert **text** to <strong> (markdown style)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    // Convert bullet points (•, -, *)
+    .replace(/^[•\-\*] (.+)$/gm, '<li class="ml-4">$1</li>')
+    // Wrap consecutive <li> in <ul>
+    .replace(/(<li[^>]*>.*<\/li>\n?)+/g, (match) => `<ul class="list-disc my-2">${match}</ul>`)
+    // Convert double newlines to paragraph breaks
+    .replace(/\n\n+/g, '</p><p class="my-3">')
+    // Convert single newlines to <br>
+    .replace(/\n/g, '<br/>')
+    // Wrap in initial paragraph
+    .replace(/^/, '<p class="my-3">')
+    .replace(/$/, '</p>')
+    // Clean up
+    .replace(/<p class="my-3"><\/p>/g, '')
+    .replace(/<p class="my-3"><br\/>/g, '<p class="my-3">');
+}
+
 interface HeroIdentity {
   identityType: string;
   imageUrl: string | null;
@@ -46,6 +74,7 @@ interface CardPoolItem {
   quantity: number;
   packs: string[];
   packCodes: string[];
+  allIds?: string[]; // All MarvelCDB card IDs that map to this card (for import)
 }
 
 interface DeckEntry {
@@ -165,6 +194,18 @@ export default function DeckBuilder() {
   const [aiSuggestions, setAiSuggestions] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importInput, setImportInput] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState('');
+  const [importConfirm, setImportConfirm] = useState<{
+    deckName: string;
+    heroName: string;
+    heroCode: string;
+    aspects: string[];
+    slots: Record<string, number>;
+    mismatch: 'hero' | 'aspect' | 'both' | null;
+  } | null>(null);
   const cardPoolRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -253,6 +294,26 @@ export default function DeckBuilder() {
       }
     }
   }, []);
+
+  // Check for pending import after redirect
+  useEffect(() => {
+    if (step !== 'editor' || allCards.length === 0 || !selectedHero) return;
+    
+    const pendingImportStr = sessionStorage.getItem('pendingImport');
+    if (!pendingImportStr) return;
+    
+    try {
+      const { slots, name } = JSON.parse(pendingImportStr);
+      sessionStorage.removeItem('pendingImport');
+      
+      // Apply the imported deck
+      setTimeout(() => {
+        applyImportedDeck(slots, name);
+      }, 100);
+    } catch {
+      sessionStorage.removeItem('pendingImport');
+    }
+  }, [step, allCards, selectedHero, selectedAspects]);
 
   useEffect(() => {
     setTypeFilter('all');
@@ -452,6 +513,8 @@ export default function DeckBuilder() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           heroName: selectedHero.name,
+          heroIdentities: selectedHero.identities,
+          heroHealth: selectedHero.health,
           aspects: selectedAspects,
           currentDeck,
           cardPool,
@@ -489,6 +552,270 @@ export default function DeckBuilder() {
       setAiSuggestions('Error getting suggestions. Please try again.');
     } finally {
       setAiLoading(false);
+    }
+  }
+
+  // Parse MarvelCDB URL or ID
+  function parseMarvelCDBInput(input: string): { type: 'decklist' | 'deck'; id: string } | null {
+    const trimmed = input.trim();
+    
+    // Direct ID (numbers only)
+    if (/^\d+$/.test(trimmed)) {
+      return { type: 'decklist', id: trimmed };
+    }
+    
+    // URL patterns
+    // https://marvelcdb.com/decklist/view/12345/deck-name-1.0
+    const decklistMatch = trimmed.match(/marvelcdb\.com\/decklist\/view\/(\d+)/);
+    if (decklistMatch) {
+      return { type: 'decklist', id: decklistMatch[1] };
+    }
+    
+    // https://marvelcdb.com/deck/view/123456
+    const deckMatch = trimmed.match(/marvelcdb\.com\/deck\/view\/(\d+)/);
+    if (deckMatch) {
+      return { type: 'deck', id: deckMatch[1] };
+    }
+    
+    return null;
+  }
+
+  // Map MarvelCDB aspect to our aspect names
+  function mapAspect(mcdbAspect: string): string {
+    const mapping: Record<string, string> = {
+      aggression: 'Aggression',
+      justice: 'Justice',
+      leadership: 'Leadership',
+      protection: 'Protection',
+      pool: 'Pool',
+    };
+    return mapping[mcdbAspect.toLowerCase()] ?? mcdbAspect;
+  }
+
+  async function handleImport() {
+    if (!importInput.trim()) return;
+    
+    setImportLoading(true);
+    setImportError('');
+    
+    try {
+      const parsed = parseMarvelCDBInput(importInput);
+      if (!parsed) {
+        setImportError('Invalid MarvelCDB URL or deck ID. Try pasting a deck URL or just the numeric ID.');
+        setImportLoading(false);
+        return;
+      }
+      
+      // Fetch from MarvelCDB API (only public decklists supported)
+      const apiUrl = parsed.type === 'decklist'
+        ? `https://marvelcdb.com/api/public/decklist/${parsed.id}`
+        : `https://marvelcdb.com/api/public/deck/${parsed.id}`;
+      
+      const resp = await fetch(apiUrl);
+      if (!resp.ok) {
+        if (resp.status === 404) {
+          setImportError('Deck not found. Make sure it\'s a published decklist.');
+        } else {
+          setImportError('Failed to fetch deck from MarvelCDB.');
+        }
+        setImportLoading(false);
+        return;
+      }
+      
+      const data = await resp.json();
+      
+      // Parse aspect from meta field
+      let aspects: string[] = [];
+      try {
+        const meta = JSON.parse(data.meta || '{}');
+        if (meta.aspect) {
+          // Could be single aspect or comma-separated for multi-aspect
+          aspects = meta.aspect.split(',').map((a: string) => mapAspect(a.trim()));
+        }
+      } catch {
+        // meta parsing failed, try to infer from cards later
+      }
+      
+      // Check hero match
+      const heroCode = data.hero_code;
+      const heroName = data.hero_name;
+      
+      // The MarvelCDB hero_code should match our hero ID directly
+      // Our hero IDs are the MarvelCDB codes (e.g., "01040a" for Black Panther)
+      const importedHero = heroes.find(h => h.id === heroCode);
+      
+      // Determine mismatch type
+      let mismatch: 'hero' | 'aspect' | 'both' | null = null;
+      const heroMatches = selectedHero?.id === heroCode;
+      
+      // For Adam Warlock, aspects don't need to match (he uses all 4)
+      // For other heroes, check aspects match
+      const isImportedHeroWarlock = heroCode === WARLOCK_ID;
+      const isCurrentHeroWarlock = selectedHero?.id === WARLOCK_ID;
+      
+      let aspectsMatch = true;
+      if (!isImportedHeroWarlock && !isCurrentHeroWarlock && aspects.length > 0) {
+        aspectsMatch = aspects.length === selectedAspects.length &&
+          aspects.every(a => selectedAspects.includes(a));
+      }
+      
+      if (!heroMatches && !aspectsMatch && aspects.length > 0) {
+        mismatch = 'both';
+      } else if (!heroMatches) {
+        mismatch = 'hero';
+      } else if (!aspectsMatch && aspects.length > 0) {
+        mismatch = 'aspect';
+      }
+      
+      // If there's a mismatch, show confirmation dialog
+      if (mismatch) {
+        setImportConfirm({
+          deckName: data.name,
+          heroName,
+          heroCode,
+          aspects,
+          slots: data.slots,
+          mismatch,
+        });
+        setImportLoading(false);
+        return;
+      }
+      
+      // No mismatch, apply directly
+      applyImportedDeck(data.slots, data.name);
+      
+    } catch (err) {
+      setImportError('Failed to import deck. Please try again.');
+    } finally {
+      setImportLoading(false);
+    }
+  }
+
+  function applyImportedDeck(slots: Record<string, number>, name?: string) {
+    // Build lookup map: any MarvelCDB code -> card (including reprints)
+    const cardByAnyId = new Map<string, CardPoolItem>();
+    for (const card of allCards) {
+      // Primary ID
+      cardByAnyId.set(card.id, card);
+      // All reprint IDs
+      if (card.allIds) {
+        for (const altId of card.allIds) {
+          cardByAnyId.set(altId, card);
+        }
+      }
+    }
+
+    const newDeck = new Map<string, DeckEntry>();
+    const skippedCards: { code: string; reason: string }[] = [];
+    const importedCards: { name: string; qty: number }[] = [];
+
+    // First, add hero cards (they're mandatory)
+    let heroCardCount = 0;
+    if (selectedHero) {
+      for (const card of allCards.filter(c => c.heroId === selectedHero.id)) {
+        newDeck.set(card.id, { card, quantity: card.deckLimit });
+        heroCardCount += card.deckLimit;
+      }
+    }
+
+    // Build set of hero-specific card IDs to skip (include all reprint IDs)
+    const heroCardIds = new Set<string>();
+    for (const card of allCards.filter(c => c.heroId === selectedHero?.id)) {
+      heroCardIds.add(card.id);
+      if (card.allIds) {
+        for (const altId of card.allIds) {
+          heroCardIds.add(altId);
+        }
+      }
+    }
+
+    // Then add imported cards
+    for (const [code, quantity] of Object.entries(slots)) {
+      // Skip hero-specific cards (already added above)
+      if (heroCardIds.has(code)) {
+        continue; // Don't log these, they're handled above
+      }
+
+      // Look up card by MarvelCDB code (including reprints)
+      const card = cardByAnyId.get(code);
+
+      if (card) {
+        // Check if card's aspect is valid for current build
+        const validAspects = new Set(['Basic', ...selectedAspects]);
+        if (card.aspect && !validAspects.has(card.aspect)) {
+          skippedCards.push({ code, reason: `wrong aspect: ${card.aspect} (need ${selectedAspects.join('/')})` });
+          continue;
+        }
+
+        // Respect deck limits
+        const limit = card.isUnique ? 1 : card.deckLimit;
+        const qty = Math.min(quantity, limit);
+
+        newDeck.set(card.id, { card, quantity: qty });
+        importedCards.push({ name: card.name, qty });
+      } else {
+        // Card not found - might be hero identity card or not in our DB
+        skippedCards.push({ code, reason: 'card not found in database' });
+      }
+    }
+
+    // Calculate totals
+    const totalImported = importedCards.reduce((sum, c) => sum + c.qty, 0);
+    const totalDeckSize = heroCardCount + totalImported;
+
+    // Log import summary
+    console.group('📦 MarvelCDB Import Summary');
+    console.log(`Deck: "${name}"`);
+    console.log(`Hero cards (auto-added): ${heroCardCount}`);
+    console.log(`Imported cards: ${totalImported} (${importedCards.length} unique)`);
+    console.log(`Total deck size: ${totalDeckSize}`);
+    if (importedCards.length > 0) {
+      console.log('Imported:', importedCards.map(c => `${c.name} x${c.qty}`).join(', '));
+    }
+    if (skippedCards.length > 0) {
+      console.warn('Skipped cards:');
+      skippedCards.forEach(s => console.warn(`  - ${s.code}: ${s.reason}`));
+    }
+    console.groupEnd();
+
+    // Apply the new deck
+    setDeck(newDeck);
+    if (name) setDeckName(name);
+    setImportDialogOpen(false);
+    setImportInput('');
+    setImportConfirm(null);
+  }
+
+  function confirmImportWithSwitch() {
+    if (!importConfirm) return;
+    
+    // Try to find hero by code first, then by name
+    const heroForImport = heroes.find(h => h.id === importConfirm.heroCode) ??
+      heroes.find(h => 
+        importConfirm.heroName.toLowerCase().includes(h.name.toLowerCase()) ||
+        h.name.toLowerCase().includes(importConfirm.heroName.toLowerCase())
+      );
+    
+    if (heroForImport) {
+      const slug = heroSlug(heroForImport.name, heroForImport.id);
+      
+      // Handle Adam Warlock specially - always use all 4 aspects
+      let aspectsParam: string;
+      if (heroForImport.id === WARLOCK_ID) {
+        aspectsParam = [...ALL_ASPECTS].map(a => a.toLowerCase()).sort().join(',');
+      } else {
+        aspectsParam = importConfirm.aspects.map(a => a.toLowerCase()).sort().join(',');
+      }
+      
+      // Store import data in sessionStorage so we can apply it after redirect
+      sessionStorage.setItem('pendingImport', JSON.stringify({
+        slots: importConfirm.slots,
+        name: importConfirm.deckName,
+      }));
+      window.location.href = `/builder/${slug}/${aspectsParam}`;
+    } else {
+      setImportError(`Could not find hero "${importConfirm.heroName}" in your collection.`);
+      setImportConfirm(null);
     }
   }
 
@@ -670,16 +997,24 @@ export default function DeckBuilder() {
           </div>
         </div>
         {!sessionContext && (
-          <button
-            onClick={() => {
-              window.location.href = selectedHero?.id === WARLOCK_ID
-                ? '/builder'
-                : `/builder/${heroSlug(selectedHero!.name, selectedHero!.id)}`;
-            }}
-            className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-          >
-            {selectedHero?.id === WARLOCK_ID ? '← Change Hero' : '← Change Hero/Aspect'}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setImportDialogOpen(true)}
+              className="rounded border border-white/10 px-3 py-1.5 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-[var(--color-text)]"
+            >
+              Import from MarvelCDB
+            </button>
+            <button
+              onClick={() => {
+                window.location.href = selectedHero?.id === WARLOCK_ID
+                  ? '/builder'
+                  : `/builder/${heroSlug(selectedHero!.name, selectedHero!.id)}`;
+              }}
+              className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+            >
+              {selectedHero?.id === WARLOCK_ID ? '← Change Hero' : '← Change Hero/Aspect'}
+            </button>
+          </div>
         )}
       </div>
 
@@ -1059,6 +1394,122 @@ export default function DeckBuilder() {
       </div>
       <CardModal card={modalCard} onClose={() => setModalCard(null)} />
       
+      {/* Import Dialog */}
+      {importDialogOpen && (
+        <>
+          <div 
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            onClick={() => {
+              setImportDialogOpen(false);
+              setImportInput('');
+              setImportError('');
+              setImportConfirm(null);
+            }}
+          />
+          <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-white/10 bg-[var(--color-surface)] p-6 shadow-xl">
+            <h2 className="mb-4 text-lg font-semibold">Import from MarvelCDB</h2>
+            
+            {!importConfirm ? (
+              <>
+                <p className="mb-4 text-sm text-[var(--color-text-muted)]">
+                  Paste a MarvelCDB deck URL or decklist ID to import cards.
+                </p>
+                <input
+                  type="text"
+                  placeholder="https://marvelcdb.com/decklist/view/12345 or just 12345"
+                  value={importInput}
+                  onChange={e => setImportInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleImport()}
+                  className="mb-3 w-full rounded border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[var(--color-secondary)]"
+                  autoFocus
+                />
+                {importError && (
+                  <p className="mb-3 text-sm text-red-400">{importError}</p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setImportDialogOpen(false);
+                      setImportInput('');
+                      setImportError('');
+                    }}
+                    className="flex-1 rounded border border-white/10 px-4 py-2 text-sm font-medium transition hover:bg-white/5"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleImport}
+                    disabled={importLoading || !importInput.trim()}
+                    className="flex-1 rounded bg-[var(--color-primary)] px-4 py-2 text-sm font-medium transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {importLoading ? 'Importing…' : 'Import'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mb-4 rounded border border-yellow-500/30 bg-yellow-500/10 p-3">
+                  <p className="text-sm font-medium text-yellow-400">
+                    {importConfirm.mismatch === 'both' && 'Hero and aspect mismatch'}
+                    {importConfirm.mismatch === 'hero' && 'Hero mismatch'}
+                    {importConfirm.mismatch === 'aspect' && 'Aspect mismatch'}
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+                    The deck "{importConfirm.deckName}" is for{' '}
+                    <strong className="text-[var(--color-text)]">{importConfirm.heroName}</strong>
+                    {importConfirm.heroCode !== WARLOCK_ID && importConfirm.aspects.length > 0 && (
+                      <> with <strong className="text-[var(--color-text)]">{importConfirm.aspects.join('/')}</strong></>
+                    )}
+                    {importConfirm.heroCode === WARLOCK_ID && (
+                      <> <span className="text-xs">(uses all aspects)</span></>
+                    )}.
+                  </p>
+                  <p className="mt-2 text-sm text-[var(--color-text-muted)]">
+                    You're currently building{' '}
+                    <strong className="text-[var(--color-text)]">{selectedHero?.name}</strong>
+                    {selectedHero?.id !== WARLOCK_ID && selectedAspects.length > 0 && (
+                      <> with <strong className="text-[var(--color-text)]">{selectedAspects.join('/')}</strong></>
+                    )}
+                    {selectedHero?.id === WARLOCK_ID && (
+                      <> <span className="text-xs">(uses all aspects)</span></>
+                    )}.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={confirmImportWithSwitch}
+                    className="w-full rounded bg-[var(--color-primary)] px-4 py-2 text-sm font-medium transition hover:opacity-90"
+                  >
+                    Switch to {importConfirm.heroName}
+                    {importConfirm.heroCode !== WARLOCK_ID && importConfirm.aspects.length > 0 && ` (${importConfirm.aspects.join('/')})`}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setImportConfirm(null);
+                      setImportError('');
+                    }}
+                    className="w-full rounded border border-white/10 px-4 py-2 text-sm font-medium transition hover:bg-white/5"
+                  >
+                    Try Different Deck
+                  </button>
+                  <button
+                    onClick={() => {
+                      setImportDialogOpen(false);
+                      setImportInput('');
+                      setImportError('');
+                      setImportConfirm(null);
+                    }}
+                    className="w-full px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:text-[var(--color-text)]"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      )}
+      
       {/* Floating AI Button */}
       <button
         onClick={() => aiPanelOpen ? setAiPanelOpen(false) : requestAiSuggestions()}
@@ -1104,9 +1555,10 @@ export default function DeckBuilder() {
                 </div>
               )}
               {aiSuggestions && (
-                <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                  {aiSuggestions}
-                </div>
+                <div 
+                  className="text-sm leading-relaxed [&_strong]:text-yellow-300 [&_strong]:font-semibold [&_ul]:list-none [&_ul]:pl-0 [&_li]:relative [&_li]:pl-5 [&_li]:before:content-['•'] [&_li]:before:absolute [&_li]:before:left-0 [&_li]:before:text-yellow-300"
+                  dangerouslySetInnerHTML={{ __html: formatAiResponse(aiSuggestions) }}
+                />
               )}
               {!aiLoading && !aiSuggestions && (
                 <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
