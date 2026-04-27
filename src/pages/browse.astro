@@ -258,6 +258,12 @@ const ASPECT_FILTERS = [
     Showing {displayCards.length} cards
   </p>
 
+  <!-- Empty state -->
+  <div id="empty-state" class="hidden py-16 text-center text-[var(--color-text-muted)]">
+    <p class="text-lg">No cards match your filters.</p>
+    <p class="mt-1 text-sm">Try adjusting your search or clearing filters.</p>
+  </div>
+
   <!-- Card Grid -->
   <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4" id="card-grid">
     {displayCards.map(card => (
@@ -439,7 +445,9 @@ const ASPECT_FILTERS = [
     });
 
     if (cardCount) {
-      cardCount.textContent = `Showing ${visibleCount} cards`;
+      cardCount.textContent = `Showing ${visibleCount} ${visibleCount === 1 ? 'card' : 'cards'}`;
+      const emptyState = document.getElementById('empty-state');
+      if (emptyState) emptyState.classList.toggle('hidden', visibleCount > 0);
     }
   }
 

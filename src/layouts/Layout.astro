@@ -8,6 +8,10 @@ interface Props {
 
 const { title } = Astro.props;
 const user = await getUser(Astro);
+const path = Astro.url.pathname;
+function isActive(href: string) {
+  return href === '/' ? path === '/' : path.startsWith(href);
+}
 ---
 
 <!doctype html>
@@ -26,11 +30,11 @@ const user = await getUser(Astro);
           MC Deck Builder
         </a>
         <div class="hidden items-center gap-4 md:flex">
-          <a href="/browse" class="hover:text-[var(--color-secondary)]">Browse</a>
-          <a href="/decks" class="hover:text-[var(--color-secondary)]">My Decks</a>
-          <a href="/collection" class="hover:text-[var(--color-secondary)]">Collection</a>
-          <a href="/sessions" class="hover:text-[var(--color-secondary)]">Sessions</a>
-          <a href="/builder" class="hover:text-[var(--color-secondary)]">Builder</a>
+          <a href="/browse" class={`hover:text-[var(--color-secondary)] ${isActive('/browse') ? 'text-[var(--color-secondary)]' : ''}`}>Browse</a>
+          <a href="/decks" class={`hover:text-[var(--color-secondary)] ${isActive('/decks') ? 'text-[var(--color-secondary)]' : ''}`}>My Decks</a>
+          <a href="/collection" class={`hover:text-[var(--color-secondary)] ${isActive('/collection') ? 'text-[var(--color-secondary)]' : ''}`}>Collection</a>
+          <a href="/sessions" class={`hover:text-[var(--color-secondary)] ${isActive('/sessions') ? 'text-[var(--color-secondary)]' : ''}`}>Sessions</a>
+          <a href="/builder" class={`hover:text-[var(--color-secondary)] ${isActive('/builder') ? 'text-[var(--color-secondary)]' : ''}`}>Builder</a>
           {user ? (
             <div class="flex items-center gap-3">
               <img
@@ -63,11 +67,11 @@ const user = await getUser(Astro);
       <div id="mobile-nav" class="hidden border-t border-white/10 md:hidden">
         <div class="mx-auto max-w-7xl px-4 py-3">
           <div class="flex flex-col gap-1">
-            <a href="/browse" class="rounded px-3 py-2 hover:bg-white/5 hover:text-[var(--color-secondary)]">Browse</a>
-            <a href="/decks" class="rounded px-3 py-2 hover:bg-white/5 hover:text-[var(--color-secondary)]">My Decks</a>
-            <a href="/collection" class="rounded px-3 py-2 hover:bg-white/5 hover:text-[var(--color-secondary)]">Collection</a>
-            <a href="/sessions" class="rounded px-3 py-2 hover:bg-white/5 hover:text-[var(--color-secondary)]">Sessions</a>
-            <a href="/builder" class="rounded px-3 py-2 hover:bg-white/5 hover:text-[var(--color-secondary)]">Builder</a>
+            <a href="/browse" class={`rounded px-3 py-2 hover:bg-white/5 hover:text-[var(--color-secondary)] ${isActive('/browse') ? 'text-[var(--color-secondary)]' : ''}`}>Browse</a>
+            <a href="/decks" class={`rounded px-3 py-2 hover:bg-white/5 hover:text-[var(--color-secondary)] ${isActive('/decks') ? 'text-[var(--color-secondary)]' : ''}`}>My Decks</a>
+            <a href="/collection" class={`rounded px-3 py-2 hover:bg-white/5 hover:text-[var(--color-secondary)] ${isActive('/collection') ? 'text-[var(--color-secondary)]' : ''}`}>Collection</a>
+            <a href="/sessions" class={`rounded px-3 py-2 hover:bg-white/5 hover:text-[var(--color-secondary)] ${isActive('/sessions') ? 'text-[var(--color-secondary)]' : ''}`}>Sessions</a>
+            <a href="/builder" class={`rounded px-3 py-2 hover:bg-white/5 hover:text-[var(--color-secondary)] ${isActive('/builder') ? 'text-[var(--color-secondary)]' : ''}`}>Builder</a>
             {user ? (
               <div class="mt-2 flex items-center gap-3 border-t border-white/10 pt-3">
                 <img
