@@ -482,6 +482,9 @@ export default function DeckBuilder() {
         text += decoder.decode(value, { stream: true });
         setAiSuggestions(text);
       }
+      // Flush any remaining bytes
+      text += decoder.decode();
+      setAiSuggestions(text);
     } catch (err) {
       setAiSuggestions('Error getting suggestions. Please try again.');
     } finally {

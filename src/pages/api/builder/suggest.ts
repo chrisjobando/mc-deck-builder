@@ -201,7 +201,7 @@ ${cardPool.length > 100 ? `\n... and ${cardPool.length - 100} more cards` : ''}`
     model: google('gemini-2.5-flash'),
     system,
     messages: [{ role: 'user', content: userMessage }],
-    maxOutputTokens: 1024,
+    maxOutputTokens: 2048,
   });
 
   return result.toTextStreamResponse();
