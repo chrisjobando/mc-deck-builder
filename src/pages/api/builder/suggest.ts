@@ -1,6 +1,7 @@
 import { google } from '@ai-sdk/google';
 import { streamText } from 'ai';
 import type { APIRoute } from 'astro';
+import { getUser } from '../../../lib/auth';
 import { searchDocuments } from '../../../lib/embeddings';
 
 interface CardInfo {
@@ -66,7 +67,11 @@ function formatCardForPrompt(c: CardInfo): string {
   return parts.join(' ');
 }
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async (context) => {
+  const user = await getUser(context);
+  if (!user) return new Response('Unauthorized', { status: 401 });
+
+  const { request } = context;
   let body: {
     heroName?: string;
     heroIdentities?: HeroIdentity[];
