@@ -1,0 +1,106 @@
+---
+import DeckBuilder from '../../../../components/DeckBuilder';
+import Layout from '../../../../layouts/Layout.astro';
+import { getUser } from '../../../../lib/auth';
+import { heroSlug, loadBuilderData } from '../../../../lib/builder-data';
+import { prisma } from '../../../../lib/db';
+import {
+computeSessionCollection,
+formatSessionForClient,
+formatTeammates,
+getSessionByCode,
+getTeammateUniqueCards,
+} from '../../../../lib/sessions';
+
+const user = await getUser(Astro);
+if (!user) return Astro.redirect('/api/auth/signin');
+
+const { code, hero: heroParam, aspects: aspectsParam } = Astro.params;
+
+const session = await getSessionByCode(code!);
+if (!session) return Astro.redirect('/sessions');
+
+const participant = session.participants.find((p) => p.userId === (user.id as string));
+if (!participant) return Astro.redirect(`/sessions/${code}`);
+
+// Must be building/completed and locked in
+if (session.status !== 'building' && session.status !== 'completed') {
+  return Astro.redirect(`/sessions/${code}`);
+}
+if (!participant.isLocked || !participant.heroCardId) {
+  return Astro.redirect(`/sessions/${code}`);
+}
+
+const { heroOptions, cardPool } = await loadBuilderData();
+
+// Compute session collection
+const { collectionCodes, cardQuantities } = await computeSessionCollection(session, cardPool);
+
+const VALID_ASPECTS = new Set(['Aggression', 'Justice', 'Leadership', 'Pool', 'Protection']);
+
+// Validate hero matches participant's locked hero
+const hero = heroOptions.find(h => heroSlug(h.name, h.id) === heroParam);
+if (!hero || hero.id !== participant.heroCardId) {
+  const correctHero = heroOptions.find(h => h.id === participant.heroCardId);
+  if (correctHero) {
+    const slug = heroSlug(correctHero.name, correctHero.id);
+    const aspects = participant.aspects.map(a => a.toLowerCase()).sort().join(',');
+    return Astro.redirect(`/sessions/${code}/${slug}/${aspects}`);
+  }
+  return Astro.redirect(`/sessions/${code}`);
+}
+
+// Validate aspects
+const aspects = aspectsParam
+  ?.split(',')
+  .map(a => a.charAt(0).toUpperCase() + a.slice(1).toLowerCase())
+  .filter(a => VALID_ASPECTS.has(a)) ?? [];
+
+if (aspects.length === 0 || [...aspects].sort().join(',') !== [...participant.aspects].sort().join(',')) {
+  return Astro.redirect(`/sessions/${code}/${heroParam}/${participant.aspects.map(a => a.toLowerCase()).sort().join(',')}`);
+}
+
+// Load existing deck if any
+let editDeck: { id: string; name: string; cards: { cardId: string; quantity: number }[] } | null = null;
+if (participant.deckId) {
+  const found = await prisma.deck.findUnique({
+    where: { id: participant.deckId },
+    select: { id: true, name: true, cards: true, userId: true },
+  });
+  if (found?.userId === user.id) {
+    editDeck = { id: found.id, name: found.name, cards: found.cards as { cardId: string; quantity: number }[] };
+  }
+}
+
+const teammateUniques = getTeammateUniqueCards(session, user.id as string, cardPool);
+const teammates = formatTeammates(session, user.id as string);
+const title = `${hero.name} — ${session.name}`;
+---
+
+<Layout title={title}>
+  <div id="heroes-data" data-heroes={JSON.stringify(heroOptions)} class="hidden"></div>
+  <div id="cards-data" data-cards={JSON.stringify(cardPool)} class="hidden"></div>
+  <div id="collection-data" data-owned={JSON.stringify(collectionCodes)} data-has-collection="true" class="hidden"></div>
+  <div
+    id="initial-state"
+    data-step="editor"
+    data-hero-id={hero.id}
+    data-aspects={aspects.map(a => a.toLowerCase()).join(',')}
+    data-edit-deck-id={editDeck?.id ?? ''}
+    data-edit-deck-name={editDeck?.name ?? ''}
+    data-edit-deck-cards={editDeck ? JSON.stringify(editDeck.cards) : ''}
+    data-session-code={code}
+    class="hidden"
+  ></div>
+  <div 
+    id="session-context" 
+    data-session={JSON.stringify(formatSessionForClient(session))}
+    data-session-name={session.name}
+    data-collection-mode={session.collectionMode}
+    data-teammates={JSON.stringify(teammates)}
+    data-card-quantities={JSON.stringify(cardQuantities)}
+    data-teammate-uniques={JSON.stringify(teammateUniques)}
+    class="hidden"
+  ></div>
+  <DeckBuilder client:load />
+</Layout>

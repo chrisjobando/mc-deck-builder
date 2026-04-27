@@ -1,0 +1,54 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getUser } from '../../lib/auth';
+import { prisma } from '../../lib/db';
+import { loadBuilderData } from '../../lib/builder-data';
+import { getSessionByCode, formatSessionForClient } from '../../lib/sessions';
+import { pusher, sessionChannel, EVENTS } from '../../lib/pusher';
+import SessionLobby from '../../components/SessionLobby';
+
+const user = await getUser(Astro);
+if (!user) return Astro.redirect('/api/auth/signin');
+
+const { code } = Astro.params;
+const session = await getSessionByCode(code!);
+if (!session) return Astro.redirect('/sessions');
+
+// Auto-join if not already a participant
+const isParticipant = session.participants.some((p) => p.userId === (user.id as string));
+if (!isParticipant && session.status !== 'completed' && session.participants.length < 4) {
+  await prisma.sessionParticipant.create({
+    data: { sessionId: session.id, userId: user.id as string },
+  });
+  // Trigger Pusher event for auto-join
+  const updated = await getSessionByCode(code!);
+  await pusher.trigger(sessionChannel(code!), EVENTS.PARTICIPANT_JOINED, formatSessionForClient(updated!));
+}
+
+// Re-fetch to get updated participant list after potential join
+const freshSession = await getSessionByCode(code!);
+const initialSession = formatSessionForClient(freshSession!);
+
+const [{ heroOptions }, userDecks] = await Promise.all([
+  loadBuilderData(),
+  prisma.deck.findMany({
+    where: { userId: user.id as string },
+    include: { heroCard: { select: { name: true } } },
+    orderBy: { updatedAt: 'desc' },
+  }),
+]);
+---
+
+<Layout title={`${session.name} — Session`}>
+  <div id="session-data" data-session={JSON.stringify(initialSession)} class="hidden"></div>
+  <div
+    id="session-meta"
+    data-code={code}
+    data-user-id={user.id as string}
+    data-host-id={session.hostId}
+    class="hidden"
+  ></div>
+  <div id="heroes-data" data-heroes={JSON.stringify(heroOptions)} class="hidden"></div>
+  <div id="user-decks" data-decks={JSON.stringify(userDecks)} class="hidden"></div>
+  <SessionLobby client:load />
+</Layout>
