@@ -33,7 +33,7 @@ interface DeckCard {
 function formatCardForPrompt(c: CardInfo): string {
   const parts: string[] = [`${c.name}`];
   parts.push(`(${c.aspect ?? 'Basic'}, ${c.type}, cost ${c.cost ?? '?'})`);
-  
+
   // Add stats for allies
   if (c.type === 'ally') {
     const stats: string[] = [];
@@ -42,7 +42,7 @@ function formatCardForPrompt(c: CardInfo): string {
     if (c.health) stats.push(`HP ${c.health}`);
     if (stats.length > 0) parts.push(`[${stats.join(', ')}]`);
   }
-  
+
   // Add resource values for resources
   if (c.type === 'resource') {
     const res: string[] = [];
@@ -52,10 +52,12 @@ function formatCardForPrompt(c: CardInfo): string {
     if (c.resourceWild) res.push(`★${c.resourceWild}`);
     if (res.length > 0) parts.push(`[${res.join(' ')}]`);
   }
-  
+
   if (c.isUnique) parts.push('(Unique)');
   if (c.traits) parts.push(`— ${c.traits}`);
-  
+  // Include card text for context on effects
+  if (c.text && c.text.length < 100) parts.push(`| ${c.text}`);
+
   return parts.join(' ');
 }
 
@@ -102,39 +104,56 @@ export const POST: APIRoute = async ({ request }) => {
   // RAG: Search for relevant rules/strategy content
   let rulesContext = '';
   try {
-    const searchQuery = `${heroName} deck building ${aspects.join(' ')} strategy synergies`;
-    const relevantDocs = await searchDocuments(searchQuery, 3, 0.5);
-    if (relevantDocs.length > 0) {
-      rulesContext = `\n\nRELEVANT RULES & STRATEGY (from game documentation):\n${relevantDocs.map(d => d.content).join('\n\n')}`;
+    // Search for hero-specific info and general deck building rules
+    const searchQueries = [
+      `${heroName} hero abilities playstyle`,
+      `${aspects.join(' ')} aspect cards strategy`,
+      `deck building resource curve economy`,
+    ];
+    const allDocs: string[] = [];
+    for (const query of searchQueries) {
+      const docs = await searchDocuments(query, 2, 0.5);
+      allDocs.push(...docs.map(d => d.content));
+    }
+    if (allDocs.length > 0) {
+      // Dedupe and limit
+      const uniqueDocs = [...new Set(allDocs)].slice(0, 4);
+      rulesContext = `\n\nRELEVANT RULES & STRATEGY (from official documentation):\n${uniqueDocs.join('\n\n')}`;
     }
   } catch (err) {
-    // RAG is optional - continue without it if it fails
     console.warn('RAG search failed:', err);
   }
 
-  const system = `You are a Marvel Champions deck building assistant. You understand card synergies, economy, and hero playstyles.${rulesContext}
+  const system = `You are an expert Marvel Champions deck building assistant. You deeply understand card synergies, resource economy, threat management, and hero playstyles.${rulesContext}
 
 DECK RULES:
-- Deck must be exactly 40–50 cards total (including hero-specific cards)
-- Hero-specific cards (15 cards) are mandatory and count toward the total
-- Aspects available: ${aspectList}. Non-hero cards must be Basic or match one of the player's aspects.
-- Unique cards (marked with ★): max 1 copy per deck
-- Non-unique cards: up to their deck limit (usually 3)${multiAspectRule}
+- Total deck size: 40–50 cards (hero-specific cards count toward this)
+- Hero-specific cards (typically 15): mandatory, auto-included
+- Allowed aspects: ${aspectList}
+- Unique cards: max 1 copy
+- Non-unique: up to deck limit (usually 3)${multiAspectRule}
 
-ANALYSIS APPROACH:
-1. Consider the hero's identity and playstyle
-2. Look for synergies with hero-specific cards
-3. Evaluate resource curve and cost distribution
-4. Check for trait synergies (Avenger, Guardian, etc.)
-5. Balance between damage, thwart, and utility${isMultiAspect ? '\n6. Ensure aspect card counts are balanced' : ''}
+KEY DECK BUILDING PRINCIPLES:
+1. **Resource curve**: Aim for average cost 1.5-2.0. Include enough 0-1 cost cards for flexibility.
+2. **Double resources**: Cards with 2+ printed resources (like Strength, Genius) are premium.
+3. **Card draw**: Include draw effects to cycle through your deck faster.
+4. **Defense events**: Consider cards that reduce damage or ready your hero.
+5. **Trait synergies**: Avenger, Guardian, X-Men, etc. can unlock powerful combos.
+6. **Win condition**: Know if you're building for big turns, steady damage, or control.
+
+HERO-SPECIFIC ANALYSIS:
+- Look at the hero's key stats (ATK/THW/DEF) and kit strengths
+- Identify which aspect cards complement their hero-specific cards
+- Note any special keywords or mechanics the hero uses
 
 RESPONSE FORMAT:
-Give 3-5 specific, actionable suggestions. For each:
-- Name exact cards to add/remove with quantities
-- Explain the synergy or strategic reason briefly
-End with 1-2 sentences of overall strategic direction.
+Provide 3-5 specific, actionable suggestions. For each:
+• Name exact cards with quantities (e.g., "Add 3x Skilled Strike")
+• Explain the synergy or strategic reason in 1 sentence
 
-Be concise and specific. Use bullet points.`;
+End with a brief overall direction (1-2 sentences).
+
+Be concise. Use bullet points. Prioritize high-impact changes.`;
 
   const heroCardsSection = heroCards.length > 0
     ? `\nHero-specific cards (${heroCardTotal} cards, mandatory):\n${heroCards.map(c => `- ${c.name} x${c.quantity}`).join('\n')}`
@@ -179,7 +198,7 @@ ${cardPool
 ${cardPool.length > 100 ? `\n... and ${cardPool.length - 100} more cards` : ''}`;
 
   const result = streamText({
-    model: google('gemini-1.5-flash'),
+    model: google('gemini-2.5-flash'),
     system,
     messages: [{ role: 'user', content: userMessage }],
     maxOutputTokens: 1024,
