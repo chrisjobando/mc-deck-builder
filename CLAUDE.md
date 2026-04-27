@@ -63,9 +63,20 @@ Tailwind v4 is loaded via `@import "tailwindcss"` in `src/styles/global.css`. **
 - Faction codes from MarvelCDB map to the `Aspect` enum via `FACTION_TO_ASPECT` in the sync script. Cards with `faction_code === 'hero'` are hero-specific.
 - Cards from modular/villain/scenario/campaign set types are excluded from `deck_cards`.
 
+### Shared Card Utilities (`src/lib/cardFormatting.ts`)
+
+Common formatting helpers used across components and pages:
+
+- `formatCardText(text)` — converts `[[bold]]` syntax and `[energy]`/`[wild]` icons to HTML
+- `formatType(t)` — converts snake_case type strings to Title Case ("player_side_scheme" → "Player Side Scheme")
+- `TYPE_COLOR` — Tailwind bg-class map keyed by card type (ally, event, support, upgrade, resource, player_side_scheme)
+- `COST_BUCKETS` — `[0,1,2,3,4,5,6] as const` tuple used for cost curve charts
+
+Import from here; do not re-implement in components.
+
 ### TypeScript
 
-Use TypeScript everywhere possible. For client-side scripts in `.astro` files, avoid `is:inline` — instead write a React component (`client:load`) or a `.ts` module. Avoid plain `<script>` tags that bypass type checking.
+Use TypeScript everywhere possible. Regular `<script>` tags in `.astro` files (without `is:inline`) **are** processed by Vite and support TypeScript and ES module imports — use them for page-level client logic. Only avoid `is:inline`, which strips TypeScript/module processing entirely. Prefer a React component (`client:load`) or a `.ts` module for anything complex.
 
 ### Planned Features (not yet built)
 
