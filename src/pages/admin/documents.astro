@@ -125,6 +125,8 @@ const sections = Object.keys(groupedDocs).sort();
 </Layout>
 
 <script>
+  import { showAlert, showConfirm } from '../../lib/dialog';
+
   const form = document.getElementById('upload-form') as HTMLFormElement;
   const uploadBtn = document.getElementById('upload-btn') as HTMLButtonElement;
   const statusEl = document.getElementById('upload-status') as HTMLParagraphElement;
@@ -182,13 +184,14 @@ const sections = Object.keys(groupedDocs).sort();
   document.querySelectorAll('.delete-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const id = (btn as HTMLButtonElement).dataset.id;
-      if (!confirm('Delete this document and all its chunks?')) return;
-      
+      const confirmed = await showConfirm('This will remove the document and all its chunks.', { title: 'Delete document?', confirmLabel: 'Delete', danger: true });
+      if (!confirmed) return;
+
       const resp = await fetch(`/api/documents?id=${id}`, { method: 'DELETE' });
       if (resp.ok) {
         window.location.reload();
       } else {
-        alert('Failed to delete document');
+        await showAlert('Failed to delete document.');
       }
     });
   });

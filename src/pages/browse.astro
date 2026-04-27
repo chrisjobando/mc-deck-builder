@@ -343,6 +343,17 @@ const ASPECT_FILTERS = [
 <script>
   import { formatCardText, formatType } from '../lib/cardFormatting';
 
+  function shortPackName(name: string | null | undefined): string {
+    if (!name) return '';
+    return name
+      .replace(/^The /, '')
+      .replace(/ Hero Pack$/, '')
+      .replace(/ Expansion Pack$/, '')
+      .replace(/ Campaign Expansion$/, '')
+      .replace(/ Expansion$/, '')
+      .trim();
+  }
+
   const cardItems = document.querySelectorAll('.card-item');
   const packFilters = document.querySelectorAll('.pack-filter');
   const typeFilters = document.querySelectorAll('.type-filter');
@@ -807,7 +818,7 @@ const ASPECT_FILTERS = [
               data-art-index="${idx}"
               title="${art.packName}"
             >
-              ${art.packName?.replace(/^The /, '').substring(0, 15) || 'Art ' + (idx + 1)}
+              ${(() => { const l = shortPackName(art.packName); return l.length > 20 ? l.substring(0, 19) + '…' : l || 'Art ' + (idx + 1); })()}
             </button>
           `).join('')}
         </div>

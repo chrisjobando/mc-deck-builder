@@ -2,6 +2,7 @@ import PusherClient from 'pusher-js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LobbyParticipant, LobbySession } from '../lib/sessions';
 import { heroSlug, WARLOCK_ID } from '../lib/utils';
+import { showAlert, showConfirm } from '../lib/dialog';
 
 interface HeroIdentity {
   identityType: string;
@@ -431,18 +432,19 @@ export default function SessionLobby() {
 
   async function handleDelete() {
     if (!meta.code || deleting) return;
-    if (!confirm('Delete this session? This cannot be undone.')) return;
+    const confirmed = await showConfirm('This cannot be undone.', { title: 'Delete session?', confirmLabel: 'Delete', danger: true });
+    if (!confirmed) return;
     setDeleting(true);
     try {
       const res = await fetch(`/api/sessions/${meta.code}`, { method: 'DELETE' });
       if (res.ok) {
         window.location.href = '/sessions';
       } else {
-        alert('Failed to delete session');
+        await showAlert('Failed to delete session.');
         setDeleting(false);
       }
     } catch {
-      alert('Failed to delete session');
+      await showAlert('Failed to delete session.');
       setDeleting(false);
     }
   }

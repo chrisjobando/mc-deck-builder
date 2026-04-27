@@ -162,6 +162,8 @@ const STATUS_COLOR: Record<string, string> = {
 </Layout>
 
 <script>
+  import { showAlert, showConfirm } from '../../lib/dialog';
+
   const createForm = document.getElementById('create-form') as HTMLFormElement;
   const joinForm = document.getElementById('join-form') as HTMLFormElement;
   const createError = document.getElementById('create-error')!;
@@ -228,7 +230,8 @@ const STATUS_COLOR: Record<string, string> = {
       e.stopPropagation();
       const code = btn.dataset.deleteSession;
       if (!code) return;
-      if (!confirm('Delete this session? This cannot be undone.')) return;
+      const confirmed = await showConfirm('This cannot be undone.', { title: 'Delete session?', confirmLabel: 'Delete', danger: true });
+      if (!confirmed) return;
       btn.disabled = true;
       btn.textContent = 'Deleting…';
       try {
@@ -236,12 +239,12 @@ const STATUS_COLOR: Record<string, string> = {
         if (res.ok) {
           btn.closest('.group')?.remove();
         } else {
-          alert('Failed to delete session');
+          await showAlert('Failed to delete session.');
           btn.disabled = false;
           btn.textContent = 'Delete';
         }
       } catch {
-        alert('Failed to delete session');
+        await showAlert('Failed to delete session.');
         btn.disabled = false;
         btn.textContent = 'Delete';
       }

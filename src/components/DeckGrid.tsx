@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { heroSlug } from '../lib/utils';
 import { formatCardText, formatType, TYPE_COLOR, COST_BUCKETS } from '../lib/cardFormatting';
+import { showConfirm } from '../lib/dialog';
 
 interface PreviewCard {
   id: string;
@@ -226,7 +227,9 @@ export default function DeckGrid({ decks: initialDecks }: { decks: DeckPreview[]
   }
 
   async function deleteDeck() {
-    if (!openDeck || !confirm('Delete this deck?')) return;
+    if (!openDeck) return;
+    const confirmed = await showConfirm('This deck will be permanently deleted.', { title: 'Delete deck?', confirmLabel: 'Delete', danger: true });
+    if (!confirmed) return;
     setDeleting(true);
     const res = await fetch(`/api/decks/${openDeck.id}`, { method: 'DELETE' });
     if (res.ok) {
