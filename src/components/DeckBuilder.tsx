@@ -162,6 +162,9 @@ export default function DeckBuilder() {
   const [collectionOnly, setCollectionOnly] = useState(false);
   const [mobileTab, setMobileTab] = useState<'cards' | 'deck'>('cards');
   const [sessionContext, setSessionContext] = useState<SessionContext | null>(null);
+  const [aiSuggestions, setAiSuggestions] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const cardPoolRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -391,6 +394,98 @@ export default function DeckBuilder() {
       setSaveStatus(resp.ok ? 'saved' : 'error');
     } catch {
       setSaveStatus('error');
+    }
+  }
+
+  async function requestAiSuggestions() {
+    if (!selectedHero || aiLoading) return;
+    
+    setAiLoading(true);
+    setAiSuggestions('');
+    setAiPanelOpen(true);
+    
+    try {
+      // Prepare hero-specific cards
+      const heroCards = deckEntries
+        .filter(e => e.card.heroId === selectedHero.id)
+        .map(e => ({
+          cardId: e.card.id,
+          name: e.card.name,
+          quantity: e.quantity,
+          type: e.card.type,
+          cost: e.card.cost,
+        }));
+      
+      // Prepare non-hero deck cards
+      const currentDeck = deckEntries
+        .filter(e => !e.card.heroId)
+        .map(e => ({
+          cardId: e.card.id,
+          name: e.card.name,
+          quantity: e.quantity,
+          type: e.card.type,
+          cost: e.card.cost,
+          aspect: e.card.aspect,
+        }));
+      
+      // Prepare available card pool
+      const cardPool = filteredPool.map(c => ({
+        id: c.id,
+        name: c.name,
+        type: c.type,
+        aspect: c.aspect,
+        cost: c.cost,
+        traits: c.traits,
+        text: c.text,
+        isUnique: c.isUnique,
+        attack: c.attack,
+        thwart: c.thwart,
+        health: c.health,
+        resourceEnergy: c.resourceEnergy,
+        resourceMental: c.resourceMental,
+        resourcePhysical: c.resourcePhysical,
+        resourceWild: c.resourceWild,
+      }));
+      
+      const resp = await fetch('/api/builder/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          heroName: selectedHero.name,
+          aspects: selectedAspects,
+          currentDeck,
+          cardPool,
+          heroCards,
+          isMultiAspect: selectedHero.isMultiAspect,
+        }),
+      });
+      
+      if (!resp.ok) {
+        setAiSuggestions('Failed to get suggestions. Please try again.');
+        setAiLoading(false);
+        return;
+      }
+      
+      const reader = resp.body?.getReader();
+      if (!reader) {
+        setAiSuggestions('Failed to read response.');
+        setAiLoading(false);
+        return;
+      }
+      
+      const decoder = new TextDecoder();
+      let text = '';
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        text += decoder.decode(value, { stream: true });
+        setAiSuggestions(text);
+      }
+    } catch (err) {
+      setAiSuggestions('Error getting suggestions. Please try again.');
+    } finally {
+      setAiLoading(false);
     }
   }
 
@@ -960,6 +1055,78 @@ export default function DeckBuilder() {
         </div>
       </div>
       <CardModal card={modalCard} onClose={() => setModalCard(null)} />
+      
+      {/* Floating AI Button */}
+      <button
+        onClick={() => aiPanelOpen ? setAiPanelOpen(false) : requestAiSuggestions()}
+        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-purple-600 to-indigo-600 text-2xl shadow-lg transition-all hover:scale-105 hover:shadow-xl active:scale-95"
+        title="AI Suggestions"
+      >
+        ✨
+      </button>
+      
+      {/* AI Panel Overlay */}
+      {aiPanelOpen && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+            onClick={() => setAiPanelOpen(false)}
+          />
+          
+          {/* Slide-out Panel */}
+          <div className="fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-md flex-col border-l border-white/10 bg-[var(--color-bg)] shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <span>✨</span>
+                AI Suggestions
+              </h2>
+              <button
+                onClick={() => setAiPanelOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-muted)] transition hover:bg-white/10 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {aiLoading && !aiSuggestions && (
+                <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+                  <span className="inline-block h-8 w-8 animate-spin rounded-full border-3 border-[var(--color-primary)] border-t-transparent" />
+                  <p className="text-sm text-[var(--color-text-muted)]">
+                    Analyzing your deck...
+                  </p>
+                </div>
+              )}
+              {aiSuggestions && (
+                <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                  {aiSuggestions}
+                </div>
+              )}
+              {!aiLoading && !aiSuggestions && (
+                <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+                  <p className="text-sm text-[var(--color-text-muted)]">
+                    Click refresh to get AI-powered deck suggestions.
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            {/* Footer */}
+            <div className="border-t border-white/10 p-4">
+              <button
+                onClick={requestAiSuggestions}
+                disabled={aiLoading}
+                className="w-full rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2.5 text-sm font-medium transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {aiLoading ? 'Analyzing...' : aiSuggestions ? 'Refresh Suggestions' : 'Get Suggestions'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
