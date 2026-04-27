@@ -128,10 +128,10 @@ function HeroDetails({ deck, heroSide }: { deck: DeckPreview; heroSide: 'hero' |
 function CardDetails({ card }: { card: PreviewCard }) {
   const traitList = splitTraits(card.traits);
   const icons = [
-    ...Array(card.resourceEnergy ?? 0).fill('⚡'),
-    ...Array(card.resourceMental ?? 0).fill('🧪'),
-    ...Array(card.resourcePhysical ?? 0).fill('👊'),
-    ...Array(card.resourceWild ?? 0).fill('🍃'),
+    ...Array(card.resourceEnergy ?? 0).fill('e'),
+    ...Array(card.resourceMental ?? 0).fill('m'),
+    ...Array(card.resourcePhysical ?? 0).fill('p'),
+    ...Array(card.resourceWild ?? 0).fill('w'),
   ];
   return (
     <>
@@ -151,7 +151,7 @@ function CardDetails({ card }: { card: PreviewCard }) {
           </span>
         )}
         {card.isUnique && (
-          <span className="rounded bg-yellow-600/30 px-2 py-0.5 text-xs text-yellow-400">★ Unique</span>
+          <span className="rounded bg-yellow-600/30 px-2 py-0.5 text-xs text-yellow-400"><span className="marvel-glyph">S</span> Unique</span>
         )}
       </div>
       {(card.thwart !== null || card.attack !== null || card.health !== null) && (
@@ -176,7 +176,7 @@ function CardDetails({ card }: { card: PreviewCard }) {
       )}
       {icons.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-0.5">
-          {icons.map((icon, i) => <span key={i} className="text-xs">{icon}</span>)}
+          {icons.map((icon, i) => <span key={i} className="marvel-glyph text-xs">{icon}</span>)}
         </div>
       )}
     </>
@@ -456,7 +456,7 @@ export default function DeckGrid({ decks: initialDecks }: { decks: DeckPreview[]
                         <span className="flex items-center gap-1.5 truncate">
                           <span className={`inline-block h-2 w-2 flex-shrink-0 rounded-full ${card.aspect ? (ASPECT_DOT[card.aspect] ?? 'bg-gray-400') : 'bg-gray-600'}`} />
                           <span className="truncate">{card.name}</span>
-                          {card.isUnique && <span className="flex-shrink-0 text-[10px] text-yellow-400">★</span>}
+                          {card.isUnique && <span className="marvel-glyph flex-shrink-0 text-[10px] text-yellow-400">S</span>}
                         </span>
                         <span className="ml-2 flex-shrink-0 text-[var(--color-text-muted)]">×{card.quantity}</span>
                       </button>

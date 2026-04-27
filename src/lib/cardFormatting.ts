@@ -1,11 +1,19 @@
+const G = (char: string) => `<span class="marvel-glyph">${char}</span>`;
+
 export function formatCardText(text: string): string {
   return text
     .replace(/\[\[([^\]]+)\]\]/g, '<strong class="uppercase">$1</strong>')
-    .replace(/\[star\]/g, '★')
-    .replace(/\[wild\]/g, '🍃')
-    .replace(/\[energy\]/g, '⚡')
-    .replace(/\[mental\]/g, '🧪')
-    .replace(/\[physical\]/g, '👊')
+    .replace(/\[energy\]/g, G('e'))
+    .replace(/\[mental\]/g, G('m'))
+    .replace(/\[physical\]/g, G('p'))
+    .replace(/\[wild\]/g, G('w'))
+    .replace(/\[star\]/g, G('S'))
+    .replace(/\[unique\]/g, G('U'))
+    .replace(/\[acceleration\]/g, G('A'))
+    .replace(/\[crisis\]/g, G('C'))
+    .replace(/\[hazard\]/g, G('H'))
+    .replace(/\[per_hero\]/g, G('P'))
+    .replace(/→/g, G('E'))
     .replace(/\n/g, '<br>');
 }
 

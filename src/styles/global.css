@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'MarvelGlyphs';
+  src: url('../assets/fonts/Marvel_LCG_Glyphs_Font_v1.ttf') format('truetype');
+  font-display: block;
+}
+
 /* Custom properties for theming */
 :root {
   --color-primary: #e62429; /* Marvel red */
@@ -20,6 +26,14 @@
   aspect-ratio: 88 / 63;
   object-fit: cover;
   transform: translate(-50%, -50%) rotate(-90deg);
+}
+
+/* Marvel LCG icon glyphs rendered inline with card text */
+.marvel-glyph {
+  font-family: 'MarvelGlyphs', sans-serif;
+  font-style: normal;
+  display: inline-block;
+  line-height: 1;
 }
 
 /* Base styles */

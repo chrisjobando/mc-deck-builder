@@ -63,11 +63,11 @@ export default function CardModal({ card, onClose }: Props) {
   const traits = formatTraits(card.traits);
 
   const resources = [
-    card.resourceEnergy && { emoji: '⚡', label: 'Energy', count: card.resourceEnergy, cls: 'bg-yellow-900/50 text-yellow-400' },
-    card.resourceMental && { emoji: '🧪', label: 'Mental', count: card.resourceMental, cls: 'bg-blue-900/50 text-blue-400' },
-    card.resourcePhysical && { emoji: '👊', label: 'Physical', count: card.resourcePhysical, cls: 'bg-red-900/50 text-red-400' },
-    card.resourceWild && { emoji: '🍃', label: 'Wild', count: card.resourceWild, cls: 'bg-green-900/50 text-green-400' },
-  ].filter(Boolean) as { emoji: string; label: string; count: number; cls: string }[];
+    card.resourceEnergy && { glyph: 'e', label: 'Energy', count: card.resourceEnergy, cls: 'bg-yellow-900/50 text-yellow-400' },
+    card.resourceMental && { glyph: 'm', label: 'Mental', count: card.resourceMental, cls: 'bg-blue-900/50 text-blue-400' },
+    card.resourcePhysical && { glyph: 'p', label: 'Physical', count: card.resourcePhysical, cls: 'bg-red-900/50 text-red-400' },
+    card.resourceWild && { glyph: 'w', label: 'Wild', count: card.resourceWild, cls: 'bg-green-900/50 text-green-400' },
+  ].filter(Boolean) as { glyph: string; label: string; count: number; cls: string }[];
 
   return (
     <div
@@ -126,7 +126,7 @@ export default function CardModal({ card, onClose }: Props) {
                 </span>
               )}
               {card.isUnique && (
-                <span className="rounded-full bg-yellow-600/50 px-3 py-1 text-sm">★ Unique</span>
+                <span className="rounded-full bg-yellow-600/50 px-3 py-1 text-sm"><span className="marvel-glyph">S</span> Unique</span>
               )}
               {card.isPermanent && (
                 <span className="rounded-full bg-purple-600/50 px-3 py-1 text-sm">Permanent</span>
@@ -167,7 +167,7 @@ export default function CardModal({ card, onClose }: Props) {
               {resources.map(r => (
                 <div key={r.label} className={`min-w-[60px] rounded-lg p-3 text-center ${r.cls.split(' ')[0]}`}>
                   <div className={`text-2xl font-bold ${r.cls.split(' ')[1]}`}>
-                    {r.emoji} {r.count}
+                    <span className="marvel-glyph">{r.glyph}</span> {r.count}
                   </div>
                   <div className="text-xs text-[var(--color-text-muted)]">{r.label}</div>
                 </div>

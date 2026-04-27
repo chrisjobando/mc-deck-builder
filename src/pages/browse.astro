@@ -817,13 +817,13 @@ const ASPECT_FILTERS = [
     // Build resource display (only one type per card)
     let resourceHtml = '';
     if (card.resourceEnergy) {
-      resourceHtml = `<div class="text-center p-3 bg-yellow-900/50 rounded-lg min-w-[60px]"><div class="text-2xl font-bold text-yellow-400">⚡ ${card.resourceEnergy}</div><div class="text-xs text-yellow-300">Energy</div></div>`;
+      resourceHtml = `<div class="text-center p-3 bg-yellow-900/50 rounded-lg min-w-[60px]"><div class="text-2xl font-bold text-yellow-400"><span class="marvel-glyph">e</span> ${card.resourceEnergy}</div><div class="text-xs text-yellow-300">Energy</div></div>`;
     } else if (card.resourceMental) {
-      resourceHtml = `<div class="text-center p-3 bg-blue-900/50 rounded-lg min-w-[60px]"><div class="text-2xl font-bold text-blue-400">🧪 ${card.resourceMental}</div><div class="text-xs text-blue-300">Mental</div></div>`;
+      resourceHtml = `<div class="text-center p-3 bg-blue-900/50 rounded-lg min-w-[60px]"><div class="text-2xl font-bold text-blue-400"><span class="marvel-glyph">m</span> ${card.resourceMental}</div><div class="text-xs text-blue-300">Mental</div></div>`;
     } else if (card.resourcePhysical) {
-      resourceHtml = `<div class="text-center p-3 bg-red-900/50 rounded-lg min-w-[60px]"><div class="text-2xl font-bold text-red-400">👊 ${card.resourcePhysical}</div><div class="text-xs text-red-300">Physical</div></div>`;
+      resourceHtml = `<div class="text-center p-3 bg-red-900/50 rounded-lg min-w-[60px]"><div class="text-2xl font-bold text-red-400"><span class="marvel-glyph">p</span> ${card.resourcePhysical}</div><div class="text-xs text-red-300">Physical</div></div>`;
     } else if (card.resourceWild) {
-      resourceHtml = `<div class="text-center p-3 bg-green-900/50 rounded-lg min-w-[60px]"><div class="text-2xl font-bold text-green-400">🍃 ${card.resourceWild}</div><div class="text-xs text-green-300">Wild</div></div>`;
+      resourceHtml = `<div class="text-center p-3 bg-green-900/50 rounded-lg min-w-[60px]"><div class="text-2xl font-bold text-green-400"><span class="marvel-glyph">w</span> ${card.resourceWild}</div><div class="text-xs text-green-300">Wild</div></div>`;
     }
 
     const statsHtml = `

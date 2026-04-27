@@ -8,11 +8,12 @@ function formatAiResponse(text: string): string {
   return text
     // Apply card text formatting first (handles [[bold]], [energy], [wild], etc.)
     .replace(/\[\[([^\]]+)\]\]/g, '<strong class="uppercase">$1</strong>')
-    .replace(/\[star\]/g, '★')
-    .replace(/\[wild\]/g, '🍃')
-    .replace(/\[energy\]/g, '⚡')
-    .replace(/\[mental\]/g, '🧪')
-    .replace(/\[physical\]/g, '👊')
+    .replace(/\[star\]/g, '<span class="marvel-glyph">S</span>')
+    .replace(/\[wild\]/g, '<span class="marvel-glyph">w</span>')
+    .replace(/\[energy\]/g, '<span class="marvel-glyph">e</span>')
+    .replace(/\[mental\]/g, '<span class="marvel-glyph">m</span>')
+    .replace(/\[physical\]/g, '<span class="marvel-glyph">p</span>')
+    .replace(/→/g, '<span class="marvel-glyph">E</span>')
     // Convert **text** to <strong> (markdown style)
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     // Convert bullet points (•, -, *)
@@ -1156,9 +1157,7 @@ export default function DeckBuilder() {
                                   {card.name}
                                 </button>
                                 {card.isUnique && (
-                                  <span className="ml-1 text-xs text-[var(--color-text-muted)]">
-                                    ★
-                                  </span>
+                                  <span className="marvel-glyph ml-1 text-xs text-yellow-400">S</span>
                                 )}
                                 <span
                                   className={`ml-1.5 rounded px-1 py-0.5 text-[10px] ${TYPE_BADGE[card.type] ?? 'bg-gray-800 text-gray-300'}`}
