@@ -78,6 +78,26 @@ Import from here; do not re-implement in components.
 
 Use TypeScript everywhere possible. Regular `<script>` tags in `.astro` files (without `is:inline`) **are** processed by Vite and support TypeScript and ES module imports — use them for page-level client logic. Only avoid `is:inline`, which strips TypeScript/module processing entirely. Prefer a React component (`client:load`) or a `.ts` module for anything complex.
 
-### Planned Features (not yet built)
+### Sessions (`/sessions`)
 
-- `/sessions` — Multiplayer deck-building sessions
+Multiplayer deck-building sessions allow players to build decks together with shared or individual card pools.
+
+**Session flow:**
+1. **draft** — Owner creates session, sets collection mode
+2. **drafting** — Players join, pick heroes (lock/unlock selections)
+3. **building** — All players locked in, build decks at `/sessions/[code]/[hero]/[aspects]`
+4. **completed** — Decks saved
+
+**Collection modes** (`CollectionMode` enum):
+- `single` — Only owner's packs available
+- `combined` — Union of all participants' packs (card available if anyone owns it)
+- `duplicates` — Sum quantities across all participants
+
+**Key files:**
+- `src/lib/sessions.ts` — `getSessionByCode()`, `computeSessionCollection()`, `getTeammateUniqueCards()`, `formatTeammates()`
+- `src/lib/pusher.ts` — Real-time updates via Pusher (`sessionChannel()`, `EVENTS`)
+- `src/components/SessionLobby.tsx` — Hero selection, lock/unlock, status management
+- `src/components/DeckBuilder.tsx` — Session-aware building with teammates panel and conflict warnings for unique cards claimed by others
+
+**Session builder page:**
+URL pattern: `/sessions/[code]/[hero]/[aspects]` — reuses `DeckBuilder` with `sessionContext` prop containing teammates, collection mode, and save endpoint.
