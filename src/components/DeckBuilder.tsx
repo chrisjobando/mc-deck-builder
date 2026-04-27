@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { COST_BUCKETS, formatType, TYPE_COLOR } from '../lib/cardFormatting';
 import { heroSlug, WARLOCK_ID } from '../lib/utils';
-import { formatType, TYPE_COLOR, COST_BUCKETS } from '../lib/cardFormatting';
 import CardModal from './CardModal';
 
 interface HeroIdentity {
@@ -51,6 +51,25 @@ interface CardPoolItem {
 interface DeckEntry {
   card: CardPoolItem;
   quantity: number;
+}
+
+interface SessionTeammate {
+  userId: string;
+  userName: string | null;
+  userImage: string | null;
+  heroName: string | null;
+  heroImageUrl: string | null;
+  aspects: string[];
+  deckName: string | null;
+}
+
+interface SessionContext {
+  code: string;
+  name: string;
+  collectionMode: 'single' | 'combined' | 'duplicates';
+  teammates: SessionTeammate[];
+  cardQuantities: Record<string, number>; // cardId -> total available qty
+  teammateUniques: Record<string, string[]>; // cardId -> [userName, ...]
 }
 
 type Step = 'hero' | 'aspect' | 'editor';
@@ -142,6 +161,7 @@ export default function DeckBuilder() {
   const [ownedPacks, setOwnedPacks] = useState<Set<string>>(new Set());
   const [collectionOnly, setCollectionOnly] = useState(false);
   const [mobileTab, setMobileTab] = useState<'cards' | 'deck'>('cards');
+  const [sessionContext, setSessionContext] = useState<SessionContext | null>(null);
   const cardPoolRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -159,6 +179,29 @@ export default function DeckBuilder() {
     const ownedData: string[] = collectionEl?.dataset.owned ? JSON.parse(collectionEl.dataset.owned) : [];
     setOwnedPacks(new Set(ownedData));
     if (collectionEl?.dataset.hasCollection === 'true') setCollectionOnly(true);
+
+    // Read session context if present
+    const sessionEl = document.getElementById('session-context');
+    const sessionCode = initialEl?.dataset.sessionCode;
+    if (sessionEl && sessionCode) {
+      const sessionName = sessionEl.dataset.sessionName ?? '';
+      const collectionMode = (sessionEl.dataset.collectionMode ?? 'combined') as SessionContext['collectionMode'];
+      const teammates: SessionTeammate[] = sessionEl.dataset.teammates ? JSON.parse(sessionEl.dataset.teammates) : [];
+      const cardQuantities: Record<string, number> = sessionEl.dataset.cardQuantities ? JSON.parse(sessionEl.dataset.cardQuantities) : {};
+      const teammateUniques: Record<string, string[]> = sessionEl.dataset.teammateUniques ? JSON.parse(sessionEl.dataset.teammateUniques) : {};
+      
+      setSessionContext({
+        code: sessionCode,
+        name: sessionName,
+        collectionMode,
+        teammates,
+        cardQuantities,
+        teammateUniques,
+      });
+      
+      // In session mode, always filter by collection
+      setCollectionOnly(true);
+    }
 
     const initialStep = (initialEl?.dataset.step as Step) ?? 'hero';
     setStep(initialStep);
@@ -299,23 +342,52 @@ export default function DeckBuilder() {
     });
   }
 
+  // Get effective card quantity considering session duplicates mode
+  function getEffectiveQuantity(card: CardPoolItem): number {
+    if (sessionContext?.collectionMode === 'duplicates' && sessionContext.cardQuantities[card.id]) {
+      return sessionContext.cardQuantities[card.id];
+    }
+    return card.quantity;
+  }
+
+  // Check if a unique card is claimed by a teammate
+  function isClaimedByTeammate(card: CardPoolItem): string[] | null {
+    if (!card.isUnique || !sessionContext) return null;
+    return sessionContext.teammateUniques[card.id] ?? null;
+  }
+
   async function doSave(asNew = false) {
     if (!selectedHero || totalDeckSize === 0) return;
     setSaveStatus('saving');
     const name = deckName.trim() || `${selectedHero.name} — ${selectedAspects.join('/')}`;
     const cards = deckEntries.map(e => ({ cardId: e.card.id, quantity: e.quantity }));
+    
     try {
-      const resp = !asNew && editDeckId
-        ? await fetch(`/api/decks/${editDeckId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, aspects: selectedAspects, cards }),
-          })
-        : await fetch('/api/builder/save', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, heroCardId: selectedHero.id, aspects: selectedAspects, cards, isPublic: false }),
-          });
+      let resp: Response;
+      
+      if (sessionContext) {
+        // Session mode: use session-aware save endpoint
+        resp = await fetch(`/api/sessions/${sessionContext.code}/save-deck`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, cards }),
+        });
+      } else if (!asNew && editDeckId) {
+        // Editing existing deck
+        resp = await fetch(`/api/decks/${editDeckId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, aspects: selectedAspects, cards }),
+        });
+      } else {
+        // Creating new deck
+        resp = await fetch('/api/builder/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, heroCardId: selectedHero.id, aspects: selectedAspects, cards, isPublic: false }),
+        });
+      }
+      
       setSaveStatus(resp.ok ? 'saved' : 'error');
     } catch {
       setSaveStatus('error');
@@ -474,6 +546,18 @@ export default function DeckBuilder() {
 
   return (
     <div>
+      {/* Session Header */}
+      {sessionContext && (
+        <div className="mb-4">
+          <a 
+            href={`/sessions/${sessionContext.code}`} 
+            className="text-sm text-[var(--color-text-muted)] hover:text-white"
+          >
+            ← Back to {sessionContext.name}
+          </a>
+        </div>
+      )}
+      
       {/* Header */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
@@ -487,17 +571,60 @@ export default function DeckBuilder() {
             ))}
           </div>
         </div>
-        <button
-          onClick={() => {
-            window.location.href = selectedHero?.id === WARLOCK_ID
-              ? '/builder'
-              : `/builder/${heroSlug(selectedHero!.name, selectedHero!.id)}`;
-          }}
-          className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-        >
-          {selectedHero?.id === WARLOCK_ID ? '← Change Hero' : '← Change Hero/Aspect'}
-        </button>
+        {!sessionContext && (
+          <button
+            onClick={() => {
+              window.location.href = selectedHero?.id === WARLOCK_ID
+                ? '/builder'
+                : `/builder/${heroSlug(selectedHero!.name, selectedHero!.id)}`;
+            }}
+            className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+          >
+            {selectedHero?.id === WARLOCK_ID ? '← Change Hero' : '← Change Hero/Aspect'}
+          </button>
+        )}
       </div>
+
+      {/* Teammates Panel (Session Mode) */}
+      {sessionContext && sessionContext.teammates.length > 0 && (
+        <div className="mb-4 rounded-lg border border-white/10 bg-[var(--color-surface)] p-4">
+          <h3 className="mb-3 text-sm font-semibold text-[var(--color-text-muted)]">
+            Teammates
+          </h3>
+          <div className="flex flex-wrap gap-3">
+            {sessionContext.teammates.map((t) => (
+              <div key={t.userId} className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2">
+                {t.userImage ? (
+                  <img src={t.userImage} alt={t.userName ?? ''} className="h-8 w-8 rounded-full object-cover" />
+                ) : (
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs font-bold uppercase">
+                    {(t.userName ?? '?')[0]}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate text-sm font-medium">{t.userName}</span>
+                    {t.aspects.map(a => (
+                      <span key={a} className={`rounded px-1 py-0.5 text-[10px] text-white ${ASPECT_BG[a] ?? 'bg-gray-700'}`}>
+                        {a[0]}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="truncate text-xs text-[var(--color-text-muted)]">
+                    {t.heroName}
+                    {t.deckName && <span className="ml-1 text-green-400">✓</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {sessionContext.collectionMode !== 'single' && (
+            <p className="mt-2 text-[10px] text-[var(--color-text-muted)]">
+              Collection: {sessionContext.collectionMode === 'combined' ? 'Union of all players' : 'Summed duplicates'}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="mb-3 flex rounded-lg border border-white/10 lg:hidden">
         <button
@@ -573,11 +700,14 @@ export default function DeckBuilder() {
                   <tbody>
                     {sortedPool.map(card => {
                       const inDeck = deck.get(card.id)?.quantity ?? 0;
+                      const effectiveQty = getEffectiveQuantity(card);
                       const limit = card.isUnique ? 1 : card.deckLimit;
                       const atLimit = inDeck >= limit;
                       const atDeckCap = totalDeckSize >= 50 && inDeck === 0;
+                      const claimedBy = isClaimedByTeammate(card);
+                      const isBlocked = claimedBy && claimedBy.length > 0 && inDeck === 0;
                       return (
-                        <tr key={card.id} className={`border-t border-white/5 ${inDeck > 0 ? 'bg-[var(--color-primary)]/10 hover:bg-[var(--color-primary)]/15' : 'hover:bg-white/[0.03]'}`}>
+                        <tr key={card.id} className={`border-t border-white/5 ${inDeck > 0 ? 'bg-[var(--color-primary)]/10 hover:bg-[var(--color-primary)]/15' : isBlocked ? 'bg-red-500/5' : 'hover:bg-white/[0.03]'}`}>
                           <td className={`py-2 ${inDeck > 0 ? 'border-l-2 border-[var(--color-primary)] pl-[10px] pr-3' : 'px-3'}`}>
                             <div className="flex items-center gap-2">
                               {card.aspect && (
@@ -588,7 +718,7 @@ export default function DeckBuilder() {
                               <div>
                                 <button
                                   onClick={() => setModalCard(card)}
-                                  className={`hover:underline ${card.heroId ? 'text-yellow-300' : ''}`}
+                                  className={`hover:underline ${card.heroId ? 'text-yellow-300' : ''} ${isBlocked ? 'text-red-300' : ''}`}
                                 >
                                   {card.name}
                                 </button>
@@ -602,6 +732,11 @@ export default function DeckBuilder() {
                                 >
                                   {formatType(card.type)}
                                 </span>
+                                {claimedBy && claimedBy.length > 0 && (
+                                  <span className="ml-1.5 text-[10px] text-red-400" title={`Used by ${claimedBy.join(', ')}`}>
+                                    ({claimedBy.join(', ')})
+                                  </span>
+                                )}
                               </div>
                             </div>
                             {card.traits && (
@@ -615,10 +750,10 @@ export default function DeckBuilder() {
                           </td>
                           <td className="px-2 py-2 text-center text-xs">
                             {(() => {
-                              const remaining = card.quantity - inDeck;
+                              const remaining = effectiveQty - inDeck;
                               const cls = remaining === 0
                                 ? 'text-red-400'
-                                : remaining < card.quantity
+                                : remaining < effectiveQty
                                   ? 'text-amber-400'
                                   : 'text-[var(--color-text-muted)]';
                               return <span className={cls}>{remaining}</span>;
@@ -641,7 +776,8 @@ export default function DeckBuilder() {
                               </span>
                               <button
                                 onClick={() => addCard(card)}
-                                disabled={atLimit || atDeckCap}
+                                disabled={atLimit || atDeckCap || !!isBlocked}
+                                title={isBlocked ? `Used by ${claimedBy?.join(', ')}` : undefined}
                                 className="flex h-6 w-6 items-center justify-center rounded bg-white/10 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-30"
                               >
                                 +
@@ -785,7 +921,9 @@ export default function DeckBuilder() {
 
           {/* Save */}
           <div className="rounded-lg border border-white/10 bg-[var(--color-surface)] p-4">
-            <h2 className="mb-3 font-semibold">{editDeckId ? 'Update Deck' : 'Save Deck'}</h2>
+            <h2 className="mb-3 font-semibold">
+              {sessionContext ? 'Save to Session' : editDeckId ? 'Update Deck' : 'Save Deck'}
+            </h2>
             <input
               type="text"
               placeholder={`${selectedHero?.name} — ${selectedAspects.join('/')}`}
@@ -795,12 +933,12 @@ export default function DeckBuilder() {
             />
             <button
               onClick={() => doSave()}
-              disabled={saveStatus === 'saving' || totalDeckSize < 40 || totalDeckSize > 50 || !hasChanges}
+              disabled={saveStatus === 'saving' || totalDeckSize < 40 || totalDeckSize > 50 || (!sessionContext && !hasChanges)}
               className="w-full rounded bg-[var(--color-primary)] px-4 py-2 text-sm font-medium transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {saveLabel}
+              {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved!' : sessionContext ? 'Save Deck' : saveLabel}
             </button>
-            {editDeckId && (
+            {editDeckId && !sessionContext && (
               <button
                 onClick={() => doSave(true)}
                 disabled={saveStatus === 'saving' || totalDeckSize < 40 || totalDeckSize > 50}
@@ -813,7 +951,9 @@ export default function DeckBuilder() {
               <p className="mt-2 text-xs text-red-400">Failed to save. Please try again.</p>
             )}
             {saveStatus === 'saved' && (
-              <p className="mt-2 text-xs text-green-400">{editDeckId ? 'Deck updated!' : 'Deck saved!'}</p>
+              <p className="mt-2 text-xs text-green-400">
+                {sessionContext ? 'Deck saved to session!' : editDeckId ? 'Deck updated!' : 'Deck saved!'}
+              </p>
             )}
           </div>
 
