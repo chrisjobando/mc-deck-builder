@@ -19,8 +19,9 @@ enum Aspect {
 }
 
 enum SessionStatus {
-  draft
-  ready
+  draft      // lobby — joining phase
+  drafting   // hero/aspect pick with per-player locking
+  building   // deck build phase
   completed
 }
 
@@ -191,9 +192,11 @@ model SessionParticipant {
   
   heroCardId String?  @map("hero_card_id")
   heroCard   HeroCard? @relation(fields: [heroCardId], references: [id])
-  
+
   deckId     String?  @map("deck_id")
   deck       Deck?    @relation(fields: [deckId], references: [id])
+
+  isLocked   Boolean  @default(false) @map("is_locked")
 
   @@map("session_participants")
 }

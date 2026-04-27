@@ -27,6 +27,6 @@ export type { Deck, DeckCard, HeroCard, HeroIdentity, RulesDocument, Session, Se
 
 // Type aliases for convenience
 export type Aspect = 'Basic' | 'Aggression' | 'Justice' | 'Leadership' | 'Pool' | 'Protection';
-export type SessionStatus = 'draft' | 'ready' | 'completed';
+export type SessionStatus = 'draft' | 'drafting' | 'building' | 'completed';
 export type CollectionMode = 'single' | 'combined' | 'duplicates';
 
