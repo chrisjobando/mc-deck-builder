@@ -2,8 +2,14 @@ import { google } from '@ai-sdk/google';
 import { embed, embedMany } from 'ai';
 import { prisma } from './db';
 
-const CHUNK_SIZE = 800; // Characters per chunk
-const CHUNK_OVERLAP = 100; // Overlap between chunks
+// Embedding configuration
+const EMBEDDING_MODEL = 'gemini-embedding-001';
+const EMBEDDING_DIMENSIONS = 768;
+const CHUNK_SIZE = 800;
+const CHUNK_OVERLAP = 100;
+const BATCH_SIZE = 50;
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 20000; // 20 seconds base delay
 
 interface SearchResult {
   id: string;
@@ -41,14 +47,34 @@ export function chunkText(text: string): string[] {
 
 /**
  * Generate embeddings for text chunks using Google's embedding model
+ * Includes retry logic for rate limiting
  */
 export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
-  const { embeddings } = await embedMany({
-    model: google.textEmbeddingModel('text-embedding-004'),
-    values: texts,
-  });
+  let lastError: Error | null = null;
 
-  return embeddings;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const { embeddings } = await embedMany({
+        model: google.embedding(EMBEDDING_MODEL),
+        values: texts,
+        providerOptions: {
+          google: { outputDimensionality: EMBEDDING_DIMENSIONS },
+        },
+      });
+      return embeddings;
+    } catch (error) {
+      lastError = error as Error;
+      const isRateLimit = lastError.message?.includes('quota') || lastError.message?.includes('rate');
+      if (isRateLimit && attempt < MAX_RETRIES - 1) {
+        const waitTime = (attempt + 1) * RETRY_DELAY_MS;
+        console.log(`Rate limited, waiting ${waitTime / 1000}s before retry...`);
+        await new Promise((resolve) => setTimeout(resolve, waitTime));
+      } else {
+        throw error;
+      }
+    }
+  }
+  throw lastError;
 }
 
 /**
@@ -56,8 +82,11 @@ export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
  */
 export async function generateQueryEmbedding(text: string): Promise<number[]> {
   const { embedding } = await embed({
-    model: google.textEmbeddingModel('text-embedding-004'),
+    model: google.embedding(EMBEDDING_MODEL),
     value: text,
+    providerOptions: {
+      google: { outputDimensionality: EMBEDDING_DIMENSIONS },
+    },
   });
 
   return embedding;
@@ -69,8 +98,7 @@ export async function generateQueryEmbedding(text: string): Promise<number[]> {
 export async function processDocument(
   title: string,
   content: string,
-  section?: string,
-  fileUrl?: string
+  section?: string
 ): Promise<string> {
   // Create the document record
   const document = await prisma.rulesDocument.create({
@@ -78,40 +106,48 @@ export async function processDocument(
       title,
       section,
       content,
-      fileUrl,
     },
   });
 
-  // Split into chunks
-  const chunks = chunkText(content);
+  try {
+    // Split into chunks
+    const chunks = chunkText(content);
 
-  // Generate embeddings in batches (Google allows up to 100 at once)
-  const BATCH_SIZE = 50;
-  for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-    const batch = chunks.slice(i, i + BATCH_SIZE);
-    const embeddings = await generateEmbeddings(batch);
-
-    // Insert chunks with embeddings using raw SQL (Prisma doesn't support vector type)
-    for (let j = 0; j < batch.length; j++) {
-      const chunkIndex = i + j;
-      const embedding = embeddings[j];
-      const embeddingStr = `[${embedding.join(',')}]`;
-
-      await prisma.$executeRaw`
-        INSERT INTO document_chunks (id, content, chunk_index, document_id, embedding, created_at)
-        VALUES (
-          gen_random_uuid(),
-          ${batch[j]},
-          ${chunkIndex},
-          ${document.id}::uuid,
-          ${embeddingStr}::vector,
-          NOW()
-        )
-      `;
+    if (chunks.length === 0) {
+      throw new Error('No valid chunks extracted from content');
     }
-  }
 
-  return document.id;
+    // Generate embeddings in batches
+    for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+      const batch = chunks.slice(i, i + BATCH_SIZE);
+      const embeddings = await generateEmbeddings(batch);
+
+      // Insert chunks with embeddings using raw SQL (Prisma doesn't support vector type)
+      for (let j = 0; j < batch.length; j++) {
+        const chunkIndex = i + j;
+        const embedding = embeddings[j];
+        const embeddingStr = `[${embedding.join(',')}]`;
+
+        await prisma.$executeRaw`
+          INSERT INTO document_chunks (id, content, chunk_index, document_id, embedding, created_at)
+          VALUES (
+            gen_random_uuid(),
+            ${batch[j]},
+            ${chunkIndex},
+            ${document.id}::uuid,
+            ${embeddingStr}::vector,
+            NOW()
+          )
+        `;
+      }
+    }
+
+    return document.id;
+  } catch (error) {
+    // Cleanup: delete the document if chunking/embedding failed
+    await prisma.rulesDocument.delete({ where: { id: document.id } });
+    throw error;
+  }
 }
 
 /**
