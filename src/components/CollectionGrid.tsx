@@ -172,7 +172,8 @@ export default function CollectionGrid({ initialOwned }: Props) {
       </div>
 
       <div
-        className={`fixed bottom-0 left-0 right-0 flex items-center justify-center p-4 transition-all duration-200 ${dirty ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`}
+        className={`fixed bottom-0 left-0 right-0 flex items-center justify-center px-4 pt-4 transition-all duration-200 ${dirty ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`}
+        style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
       >
         <div className="flex items-center gap-4 rounded-xl border border-white/20 bg-[var(--color-surface,#1e1e2e)] px-6 py-3 shadow-2xl">
           <span className="w-36 text-sm text-[var(--color-text-muted)]">{saveLabel}</span>

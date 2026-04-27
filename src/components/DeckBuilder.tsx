@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { heroSlug, WARLOCK_ID } from '../lib/utils';
+import { formatType, TYPE_COLOR, COST_BUCKETS } from '../lib/cardFormatting';
 import CardModal from './CardModal';
 
 interface HeroIdentity {
@@ -92,14 +93,6 @@ const TYPE_BADGE: Record<string, string> = {
   player_side_scheme: 'bg-orange-900/80 text-orange-200',
 };
 
-const TYPE_COLOR: Record<string, string> = {
-  ally: 'bg-blue-500',
-  event: 'bg-purple-500',
-  support: 'bg-yellow-500',
-  upgrade: 'bg-emerald-500',
-  resource: 'bg-gray-500',
-  player_side_scheme: 'bg-orange-500',
-};
 
 const ASPECT_TEXT_COLOR: Record<string, string> = {
   Aggression: 'text-red-400',
@@ -110,9 +103,6 @@ const ASPECT_TEXT_COLOR: Record<string, string> = {
   Basic: 'text-[var(--color-text-muted)]',
 };
 
-function formatType(type: string) {
-  return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-}
 
 const ALL_ASPECTS = ['Aggression', 'Justice', 'Leadership', 'Protection'];
 
@@ -464,7 +454,6 @@ export default function DeckBuilder() {
     }, {}),
   ).sort((a, b) => b[1] - a[1]);
 
-  const COST_BUCKETS = [0, 1, 2, 3, 4, 5, 6] as const;
   const costBreakdown = COST_BUCKETS.reduce<Record<number, number>>((acc, b) => ({ ...acc, [b]: 0 }), {});
   for (const e of deckEntries) {
     if (e.card.cost === null) continue;
@@ -513,13 +502,13 @@ export default function DeckBuilder() {
       <div className="mb-3 flex rounded-lg border border-white/10 lg:hidden">
         <button
           onClick={() => setMobileTab('cards')}
-          className={`flex-1 rounded-l-lg py-2.5 text-sm font-medium transition ${mobileTab === 'cards' ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-surface)]'}`}
+          className={`flex-1 rounded-l-lg py-3 text-sm font-medium transition ${mobileTab === 'cards' ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-surface)]'}`}
         >
           Cards
         </button>
         <button
           onClick={() => setMobileTab('deck')}
-          className={`flex-1 rounded-r-lg py-2.5 text-sm font-medium transition ${mobileTab === 'deck' ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-surface)]'}`}
+          className={`flex-1 rounded-r-lg py-3 text-sm font-medium transition ${mobileTab === 'deck' ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-surface)]'}`}
         >
           Deck ({totalDeckSize} / 40)
         </button>
@@ -544,7 +533,7 @@ export default function DeckBuilder() {
                 <button
                   key={f.value}
                   onClick={() => setTypeFilter(f.value)}
-                  className={`rounded px-2.5 py-1 text-xs font-medium transition ${
+                  className={`rounded px-2.5 py-1.5 text-xs font-medium transition ${
                     typeFilter === f.value
                       ? 'bg-[var(--color-primary)] text-white'
                       : 'bg-white/5 hover:bg-white/10'
@@ -640,7 +629,7 @@ export default function DeckBuilder() {
                               {inDeck > 0 && (
                                 <button
                                   onClick={() => removeCard(card.id)}
-                                  className="flex h-6 w-6 items-center justify-center rounded bg-white/10 hover:bg-white/20"
+                                  className="flex h-7 w-7 items-center justify-center rounded bg-white/10 hover:bg-white/20"
                                 >
                                   −
                                 </button>
@@ -702,7 +691,7 @@ export default function DeckBuilder() {
                 const barPx = count > 0 ? Math.max(4, Math.round((count / maxCostCount) * 36)) : 0;
                 return (
                   <div key={cost} className="flex flex-1 flex-col items-center">
-                    <span className={`mb-0.5 text-[9px] leading-none ${count > 0 ? '' : 'invisible'}`}>
+                    <span className={`mb-0.5 text-[10px] leading-none ${count > 0 ? '' : 'invisible'}`}>
                       {count}
                     </span>
                     <div className="flex h-9 w-full items-end">
@@ -711,7 +700,7 @@ export default function DeckBuilder() {
                         style={{ height: `${barPx}px` }}
                       />
                     </div>
-                    <span className="mt-0.5 text-[9px] leading-none text-[var(--color-text-muted)]">
+                    <span className="mt-0.5 text-[10px] leading-none text-[var(--color-text-muted)]">
                       {cost === 6 ? '6+' : cost}
                     </span>
                   </div>

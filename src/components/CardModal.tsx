@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { formatCardText, formatType } from '../lib/cardFormatting';
 
 export interface ModalCard {
   id: string;
@@ -40,20 +41,6 @@ const ASPECT_BG: Record<string, string> = {
   Basic: 'bg-gray-700',
 };
 
-function formatType(type: string) {
-  return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-}
-
-function formatCardText(text: string) {
-  return text
-    .replace(/\[\[([^\]]+)\]\]/g, '<strong class="uppercase">$1</strong>')
-    .replace(/\[star\]/g, '★')
-    .replace(/\[wild\]/g, '🍃')
-    .replace(/\[energy\]/g, '⚡')
-    .replace(/\[mental\]/g, '🧪')
-    .replace(/\[physical\]/g, '👊')
-    .replace(/\n/g, '<br>');
-}
 
 function formatTraits(traits: string | null | undefined): string[] {
   if (!traits) return [];
@@ -88,7 +75,7 @@ export default function CardModal({ card, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-[var(--color-surface)] shadow-2xl"
+        className="relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-[var(--color-surface)] shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         <button

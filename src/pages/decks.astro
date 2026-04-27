@@ -19,7 +19,12 @@ const allCardIds = [...new Set(
 )];
 const cardDetails = await prisma.deckCard.findMany({
   where: { id: { in: allCardIds } },
-  select: { id: true, name: true, type: true, aspect: true, cost: true, imageUrl: true, text: true, traits: true, isUnique: true, resourceEnergy: true, resourceMental: true, resourcePhysical: true, resourceWild: true },
+  select: {
+    id: true, name: true, type: true, aspect: true,
+    cost: true, attack: true, attackConsequential: true, thwart: true, thwartConsequential: true, health: true,
+    imageUrl: true, text: true, traits: true, isUnique: true,
+    resourceEnergy: true, resourceMental: true, resourcePhysical: true, resourceWild: true,
+  },
 });
 const cardMap = new Map(cardDetails.map(c => [c.id, c]));
 
@@ -44,7 +49,7 @@ const deckPreviews: DeckPreview[] = decks.map(deck => {
     .map(c => {
       const d = cardMap.get(c.cardId);
       if (!d) return null;
-      return { id: d.id, name: d.name, type: d.type, aspect: d.aspect, cost: d.cost, quantity: c.quantity, imageUrl: d.imageUrl, text: d.text, traits: d.traits, isUnique: d.isUnique, resourceEnergy: d.resourceEnergy, resourceMental: d.resourceMental, resourcePhysical: d.resourcePhysical, resourceWild: d.resourceWild };
+      return { id: d.id, name: d.name, type: d.type, aspect: d.aspect, cost: d.cost, attack: d.attack, attackConsequential: d.attackConsequential, thwart: d.thwart, thwartConsequential: d.thwartConsequential, health: d.health, quantity: c.quantity, imageUrl: d.imageUrl, text: d.text, traits: d.traits, isUnique: d.isUnique, resourceEnergy: d.resourceEnergy, resourceMental: d.resourceMental, resourcePhysical: d.resourcePhysical, resourceWild: d.resourceWild };
     })
     .filter((c): c is NonNullable<typeof c> => c !== null)
     .sort((a, b) => {
@@ -64,10 +69,20 @@ const deckPreviews: DeckPreview[] = decks.map(deck => {
     heroImageUrl: heroIdentity?.imageUrl ?? null,
     heroText: heroIdentity?.text ?? null,
     heroTraits: heroIdentity?.traits ?? null,
+    heroAttack: heroIdentity?.attack ?? null,
+    heroThwart: heroIdentity?.thwart ?? null,
+    heroDefense: heroIdentity?.defense ?? null,
+    heroRecover: heroIdentity?.recover ?? null,
+    heroHandSize: heroIdentity?.handSize ?? null,
     alterEgoName: alterEgoIdentity?.name ?? null,
     alterEgoImageUrl: alterEgoIdentity?.imageUrl ?? null,
     alterEgoText: alterEgoIdentity?.text ?? null,
     alterEgoTraits: alterEgoIdentity?.traits ?? null,
+    alterEgoAttack: alterEgoIdentity?.attack ?? null,
+    alterEgoThwart: alterEgoIdentity?.thwart ?? null,
+    alterEgoDefense: alterEgoIdentity?.defense ?? null,
+    alterEgoRecover: alterEgoIdentity?.recover ?? null,
+    alterEgoHandSize: alterEgoIdentity?.handSize ?? null,
     aspects: deck.aspects as string[],
     cards,
     total: cardCount(deck.cards),

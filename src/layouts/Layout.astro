@@ -25,12 +25,12 @@ const user = await getUser(Astro);
         <a href="/" class="text-xl font-bold text-[var(--color-primary)]">
           MC Deck Builder
         </a>
-        <div class="flex items-center gap-4">
+        <div class="hidden items-center gap-4 md:flex">
           <a href="/browse" class="hover:text-[var(--color-secondary)]">Browse</a>
           <a href="/decks" class="hover:text-[var(--color-secondary)]">My Decks</a>
           <a href="/collection" class="hover:text-[var(--color-secondary)]">Collection</a>
           <a href="/sessions" class="hover:text-[var(--color-secondary)]">Sessions</a>
-          <a href="/builder" class="hover:text-[var(--color-secondary)]">AI Builder</a>
+          <a href="/builder" class="hover:text-[var(--color-secondary)]">Builder</a>
           {user ? (
             <div class="flex items-center gap-3">
               <img
@@ -54,7 +54,46 @@ const user = await getUser(Astro);
             </a>
           )}
         </div>
+        <button id="nav-toggle" class="flex flex-col gap-1.5 rounded p-2 hover:bg-white/10 md:hidden" aria-label="Toggle menu">
+          <span class="block h-0.5 w-6 bg-current"></span>
+          <span class="block h-0.5 w-6 bg-current"></span>
+          <span class="block h-0.5 w-6 bg-current"></span>
+        </button>
       </nav>
+      <div id="mobile-nav" class="hidden border-t border-white/10 md:hidden">
+        <div class="mx-auto max-w-7xl px-4 py-3">
+          <div class="flex flex-col gap-1">
+            <a href="/browse" class="rounded px-3 py-2 hover:bg-white/5 hover:text-[var(--color-secondary)]">Browse</a>
+            <a href="/decks" class="rounded px-3 py-2 hover:bg-white/5 hover:text-[var(--color-secondary)]">My Decks</a>
+            <a href="/collection" class="rounded px-3 py-2 hover:bg-white/5 hover:text-[var(--color-secondary)]">Collection</a>
+            <a href="/sessions" class="rounded px-3 py-2 hover:bg-white/5 hover:text-[var(--color-secondary)]">Sessions</a>
+            <a href="/builder" class="rounded px-3 py-2 hover:bg-white/5 hover:text-[var(--color-secondary)]">Builder</a>
+            {user ? (
+              <div class="mt-2 flex items-center gap-3 border-t border-white/10 pt-3">
+                <img
+                  src={user.image || '/favicon.svg'}
+                  alt={user.name || 'User'}
+                  class="h-8 w-8 rounded-full object-cover"
+                />
+                <span class="text-sm text-[var(--color-text-muted)]">{user.name}</span>
+                <a
+                  href="/api/auth/signout"
+                  class="ml-auto rounded bg-white/10 px-3 py-1 text-sm hover:bg-white/20"
+                >
+                  Sign Out
+                </a>
+              </div>
+            ) : (
+              <a
+                href="/api/auth/signin"
+                class="mt-2 block rounded bg-[var(--color-primary)] px-4 py-2 text-center font-medium hover:opacity-90"
+              >
+                Sign In
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
     </header>
     <main class="mx-auto max-w-7xl px-4 py-8">
       <slot />
@@ -62,5 +101,10 @@ const user = await getUser(Astro);
     <footer class="border-t border-white/10 py-6 text-center text-sm text-[var(--color-text-muted)]">
       <p>Built with Astro, Claude AI, and ❤️ for Marvel Champions</p>
     </footer>
+    <script>
+      const toggle = document.getElementById('nav-toggle');
+      const mobileNav = document.getElementById('mobile-nav');
+      toggle?.addEventListener('click', () => mobileNav?.classList.toggle('hidden'));
+    </script>
   </body>
 </html>

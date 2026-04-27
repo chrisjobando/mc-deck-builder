@@ -1,16 +1,6 @@
 import { useState } from 'react';
 import { heroSlug } from '../lib/utils';
-
-function formatCardText(text: string): string {
-  return text
-    .replace(/\[\[([^\]]+)\]\]/g, '<strong class="uppercase">$1</strong>')
-    .replace(/\[star\]/g, '★')
-    .replace(/\[wild\]/g, '🍃')
-    .replace(/\[energy\]/g, '⚡')
-    .replace(/\[mental\]/g, '🧪')
-    .replace(/\[physical\]/g, '👊')
-    .replace(/\n/g, '<br>');
-}
+import { formatCardText, formatType, TYPE_COLOR, COST_BUCKETS } from '../lib/cardFormatting';
 
 interface PreviewCard {
   id: string;
@@ -18,6 +8,11 @@ interface PreviewCard {
   type: string;
   aspect: string | null;
   cost: number | null;
+  attack: number | null;
+  attackConsequential: number | null;
+  thwart: number | null;
+  thwartConsequential: number | null;
+  health: number | null;
   quantity: number;
   imageUrl: string | null;
   text: string | null;
@@ -38,10 +33,20 @@ export interface DeckPreview {
   heroImageUrl: string | null;
   heroText: string | null;
   heroTraits: string | null;
+  heroAttack: number | null;
+  heroThwart: number | null;
+  heroDefense: number | null;
+  heroRecover: number | null;
+  heroHandSize: number | null;
   alterEgoName: string | null;
   alterEgoImageUrl: string | null;
   alterEgoText: string | null;
   alterEgoTraits: string | null;
+  alterEgoAttack: number | null;
+  alterEgoThwart: number | null;
+  alterEgoDefense: number | null;
+  alterEgoRecover: number | null;
+  alterEgoHandSize: number | null;
   aspects: string[];
   cards: PreviewCard[];
   total: number;
@@ -66,8 +71,116 @@ const ASPECT_DOT: Record<string, string> = {
   Basic: 'bg-gray-400',
 };
 
-function formatType(t: string) {
-  return t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+const TYPE_ORDER_LIST = ['ally', 'event', 'support', 'upgrade', 'resource', 'player_side_scheme'];
+
+function splitTraits(traits: string | null): string[] {
+  if (!traits) return [];
+  return traits.split('. ').map(t => t.replace(/\.$/, '').trim()).filter(Boolean);
+}
+
+function StatBox({ label, value, color }: { label: string; value: number | null; color: string }) {
+  return (
+    <div className="rounded bg-black/30 px-2 py-1.5 text-center">
+      <p className={`text-sm font-bold leading-none ${color}`}>{value ?? '—'}</p>
+      <p className="mt-0.5 text-[9px] leading-none text-[var(--color-text-muted)]">{label}</p>
+    </div>
+  );
+}
+
+function HeroDetails({ deck, heroSide }: { deck: DeckPreview; heroSide: 'hero' | 'alter_ego' }) {
+  const isAlterEgo = heroSide === 'alter_ego';
+  const displayName = isAlterEgo ? deck.alterEgoName : deck.heroName;
+  const text = isAlterEgo ? deck.alterEgoText : deck.heroText;
+  const atk = isAlterEgo ? deck.alterEgoAttack : deck.heroAttack;
+  const thw = isAlterEgo ? deck.alterEgoThwart : deck.heroThwart;
+  const def = isAlterEgo ? deck.alterEgoDefense : deck.heroDefense;
+  const rec = isAlterEgo ? deck.alterEgoRecover : deck.heroRecover;
+  const hnd = isAlterEgo ? deck.alterEgoHandSize : deck.heroHandSize;
+  const traitList = splitTraits(isAlterEgo ? deck.alterEgoTraits : deck.heroTraits);
+  return (
+    <>
+      <p className="font-semibold leading-tight">{displayName}</p>
+      <div className="mt-2 grid grid-cols-3 gap-1.5">
+        <StatBox label="THW" value={thw} color="text-blue-400" />
+        <StatBox label="ATK" value={atk} color="text-red-400" />
+        <StatBox label="DEF" value={def} color="text-green-400" />
+        <StatBox label="REC" value={rec} color="text-yellow-400" />
+        <StatBox label="HAND" value={hnd} color="text-purple-400" />
+        <StatBox label="HP" value={deck.heroHealth} color="text-pink-400" />
+      </div>
+      {traitList.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {traitList.map(t => (
+            <span key={t} className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-[var(--color-text-muted)]">{t}</span>
+          ))}
+        </div>
+      )}
+      {text && (
+        <p
+          className="mt-2 text-xs leading-relaxed text-[var(--color-text-muted)]"
+          dangerouslySetInnerHTML={{ __html: formatCardText(text) }}
+        />
+      )}
+    </>
+  );
+}
+
+function CardDetails({ card }: { card: PreviewCard }) {
+  const traitList = splitTraits(card.traits);
+  const icons = [
+    ...Array(card.resourceEnergy ?? 0).fill('⚡'),
+    ...Array(card.resourceMental ?? 0).fill('🧪'),
+    ...Array(card.resourcePhysical ?? 0).fill('👊'),
+    ...Array(card.resourceWild ?? 0).fill('🍃'),
+  ];
+  return (
+    <>
+      <p className="font-semibold leading-tight">{card.name}</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {card.cost !== null && (
+          <span className="rounded bg-purple-900/60 px-2 py-0.5 text-xs font-bold text-purple-300">
+            Cost {card.cost}
+          </span>
+        )}
+        <span className="rounded bg-white/10 px-2 py-0.5 text-xs text-[var(--color-text-muted)]">
+          {formatType(card.type)}
+        </span>
+        {card.aspect && (
+          <span className={`rounded px-2 py-0.5 text-xs text-white ${ASPECT_BG[card.aspect] ?? 'bg-gray-700'}`}>
+            {card.aspect}
+          </span>
+        )}
+        {card.isUnique && (
+          <span className="rounded bg-yellow-600/30 px-2 py-0.5 text-xs text-yellow-400">★ Unique</span>
+        )}
+      </div>
+      {(card.thwart !== null || card.attack !== null || card.health !== null) && (
+        <div className="mt-2 flex gap-1.5">
+          {card.thwart !== null && <StatBox label="THW" value={card.thwart} color="text-blue-400" />}
+          {card.attack !== null && <StatBox label="ATK" value={card.attack} color="text-red-400" />}
+          {card.health !== null && <StatBox label="HP" value={card.health} color="text-pink-400" />}
+        </div>
+      )}
+      {traitList.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {traitList.map(t => (
+            <span key={t} className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-[var(--color-text-muted)]">{t}</span>
+          ))}
+        </div>
+      )}
+      {card.text && (
+        <p
+          className="mt-2 text-xs leading-relaxed text-[var(--color-text-muted)]"
+          dangerouslySetInnerHTML={{ __html: formatCardText(card.text) }}
+        />
+      )}
+      {icons.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-0.5">
+          {icons.map((icon, i) => <span key={i} className="text-xs">{icon}</span>)}
+        </div>
+      )}
+    </>
+  );
 }
 
 export default function DeckGrid({ decks: initialDecks }: { decks: DeckPreview[] }) {
@@ -136,6 +249,24 @@ export default function DeckGrid({ decks: initialDecks }: { decks: DeckPreview[]
       }, {})
     : {};
 
+  const typeBreakdown = openDeck
+    ? Object.entries(
+        openDeck.cards.reduce<Record<string, number>>((acc, c) => {
+          acc[c.type] = (acc[c.type] ?? 0) + c.quantity;
+          return acc;
+        }, {}),
+      ).sort(([ta], [tb]) => TYPE_ORDER_LIST.indexOf(ta) - TYPE_ORDER_LIST.indexOf(tb))
+    : [];
+
+  const costBreakdown = COST_BUCKETS.reduce<Record<number, number>>((acc, b) => ({ ...acc, [b]: 0 }), {});
+  if (openDeck) {
+    for (const c of openDeck.cards) {
+      if (c.cost === null) continue;
+      costBreakdown[Math.min(c.cost, 6)] += c.quantity;
+    }
+  }
+  const maxCostCount = Math.max(...COST_BUCKETS.map(b => costBreakdown[b]), 1);
+
   if (decks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-white/10 bg-[var(--color-surface)] py-20 text-center">
@@ -183,115 +314,12 @@ export default function DeckGrid({ decks: initialDecks }: { decks: DeckPreview[]
         ))}
       </div>
 
-      {/* Modal */}
       {openDeck && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70" onClick={closeModal} />
-          <div className="relative z-10 flex w-full max-w-2xl overflow-hidden rounded-xl border border-white/10 bg-[var(--color-surface)] shadow-2xl" style={{ maxHeight: '85vh' }}>
+          <div className="relative z-10 flex w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-white/10 bg-[var(--color-surface)] shadow-2xl sm:flex-row" style={{ maxHeight: '90vh' }}>
 
-            {/* Left: image panel */}
-            <div className="flex w-80 flex-shrink-0 flex-col bg-black/20">
-              <div className="relative aspect-[63/88] w-full overflow-hidden">
-                {leftImageUrl ? (
-                  <img src={leftImageUrl} alt={selectedCard?.name ?? openDeck.heroName} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-xs text-[var(--color-text-muted)]">No Image</div>
-                )}
-              </div>
-              {/* Info below image */}
-              <div className="flex-1 overflow-y-auto p-3 text-xs">
-                {selectedCard ? (
-                  <>
-                    <p className="font-semibold leading-tight">{selectedCard.name}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-1">
-                      <span className="text-[var(--color-text-muted)]">{formatType(selectedCard.type)}</span>
-                      {selectedCard.cost !== null && (
-                        <span className="text-[var(--color-text-muted)]">· Cost {selectedCard.cost}</span>
-                      )}
-                    </div>
-                    {selectedCard.traits && (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {selectedCard.traits.split('. ').map(t => t.replace(/\.$/, '').trim()).filter(Boolean).map(t => (
-                          <span key={t} className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-[var(--color-text-muted)]">{t}</span>
-                        ))}
-                      </div>
-                    )}
-                    {selectedCard.text && (
-                      <p
-                        className="mt-2 leading-relaxed text-[var(--color-text-muted)]"
-                        style={{ fontSize: '10px' }}
-                        dangerouslySetInnerHTML={{ __html: formatCardText(selectedCard.text) }}
-                      />
-                    )}
-                    {(() => {
-                      const icons = [
-                        ...Array(selectedCard.resourceEnergy ?? 0).fill('⚡'),
-                        ...Array(selectedCard.resourceMental ?? 0).fill('🧪'),
-                        ...Array(selectedCard.resourcePhysical ?? 0).fill('👊'),
-                        ...Array(selectedCard.resourceWild ?? 0).fill('🍃'),
-                      ];
-                      return icons.length > 0 ? (
-                        <div className="mt-2 flex flex-wrap gap-0.5">
-                          {icons.map((icon, i) => (
-                            <span key={i} className="text-xs">{icon}</span>
-                          ))}
-                        </div>
-                      ) : null;
-                    })()}
-                  </>
-                ) : (
-                  <>
-                    <p className="font-semibold leading-tight">{heroSide === 'alter_ego' ? openDeck.alterEgoName : openDeck.heroName}</p>
-                    <p className="mt-1 text-[10px] text-[var(--color-text-muted)]">♥ {openDeck.heroHealth} HP</p>
-                    {(() => {
-                      const traits = heroSide === 'alter_ego' ? openDeck.alterEgoTraits : openDeck.heroTraits;
-                      const text = heroSide === 'alter_ego' ? openDeck.alterEgoText : openDeck.heroText;
-                      const traitList = traits ? traits.split('. ').map(t => t.replace(/\.$/, '').trim()).filter(Boolean) : [];
-                      return (
-                        <>
-                          {traitList.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {traitList.map(t => (
-                                <span key={t} className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-[var(--color-text-muted)]">{t}</span>
-                              ))}
-                            </div>
-                          )}
-                          {text && (
-                            <p
-                              className="mt-2 leading-relaxed text-[var(--color-text-muted)]"
-                              style={{ fontSize: '10px' }}
-                              dangerouslySetInnerHTML={{ __html: formatCardText(text) }}
-                            />
-                          )}
-                        </>
-                      );
-                    })()}
-                  </>
-                )}
-              </div>
-
-              {/* Flip / back button */}
-              {!selectedCard && openDeck.alterEgoImageUrl && (
-                <button
-                  onClick={() => setHeroSide(s => s === 'hero' ? 'alter_ego' : 'hero')}
-                  className="border-t border-white/10 px-3 py-2 text-[10px] text-[var(--color-text-muted)] transition hover:bg-white/5 hover:text-[var(--color-text)]"
-                >
-                  {heroSide === 'hero' ? 'Alter Ego →' : '← Hero'}
-                </button>
-              )}
-              {selectedCard && (
-                <button
-                  onClick={() => setSelectedCard(null)}
-                  className="border-t border-white/10 px-3 py-2 text-[10px] text-[var(--color-text-muted)] transition hover:bg-white/5 hover:text-[var(--color-text)]"
-                >
-                  ← Hero Card
-                </button>
-              )}
-            </div>
-
-            {/* Right: deck info */}
-            <div className="flex min-w-0 flex-1 flex-col">
-              {/* Header */}
+            <div className="flex min-w-0 flex-col sm:w-[70%]">
               <div className="flex items-start justify-between border-b border-white/10 px-4 py-3">
                 <div className="min-w-0">
                   <h2 className="truncate font-bold">{openDeck.name}</h2>
@@ -302,40 +330,28 @@ export default function DeckGrid({ decks: initialDecks }: { decks: DeckPreview[]
                     ))}
                   </div>
                 </div>
-                <div className="ml-3 flex flex-shrink-0 items-center gap-2">
+                <div className="ml-3 flex flex-shrink-0 items-center gap-1">
                   <a
                     href={`/builder/${heroSlug(openDeck.heroName, openDeck.heroId)}/${openDeck.aspects.map(a => a.toLowerCase()).sort().join(',')}?deck=${openDeck.id}`}
                     className="rounded p-1.5 text-[var(--color-text-muted)] transition hover:bg-white/10 hover:text-[var(--color-text)]"
-                    aria-label="Edit deck"
-                    title="Edit deck"
+                    aria-label="Edit deck" title="Edit deck"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                       <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
                     </svg>
                   </a>
-                  <button
-                    onClick={copyDeck}
-                    disabled={copying}
-                    className="rounded p-1.5 text-[var(--color-text-muted)] transition hover:bg-white/10 hover:text-[var(--color-text)] disabled:opacity-50"
-                    aria-label="Copy deck"
-                    title="Copy deck"
-                  >
+                  <button onClick={copyDeck} disabled={copying} className="rounded p-1.5 text-[var(--color-text-muted)] transition hover:bg-white/10 hover:text-[var(--color-text)] disabled:opacity-50" aria-label="Copy deck" title="Copy deck">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                       <path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" />
                       <path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z" />
                     </svg>
                   </button>
-                  <button
-                    onClick={deleteDeck}
-                    disabled={deleting}
-                    className="rounded p-1.5 text-[var(--color-text-muted)] transition hover:bg-red-900/40 hover:text-red-400 disabled:opacity-50"
-                    aria-label="Delete deck"
-                  >
+                  <button onClick={deleteDeck} disabled={deleting} className="rounded p-1.5 text-[var(--color-text-muted)] transition hover:bg-red-900/40 hover:text-red-400 disabled:opacity-50" aria-label="Delete deck">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
                   </button>
-                  <button onClick={closeModal} className="rounded p-1.5 hover:bg-white/10" aria-label="Close">
+                  <button onClick={closeModal} className="rounded p-2 hover:bg-white/10" aria-label="Close">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                     </svg>
@@ -343,8 +359,89 @@ export default function DeckGrid({ decks: initialDecks }: { decks: DeckPreview[]
                 </div>
               </div>
 
-              {/* Card list */}
-              <div className="flex-1 overflow-y-auto px-4 py-3 pr-3">
+              <div className="flex-1 overflow-y-auto">
+                <div className="flex gap-4 p-4">
+                  <div className="w-32 flex-shrink-0 sm:w-36">
+                    <div className="relative aspect-[63/88] overflow-hidden rounded-lg bg-black/30">
+                      {leftImageUrl ? (
+                        <img src={leftImageUrl} alt={selectedCard?.name ?? openDeck.heroName} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-xs text-[var(--color-text-muted)]">No Image</div>
+                      )}
+                    </div>
+                    {!selectedCard && openDeck.alterEgoImageUrl && (
+                      <button
+                        onClick={() => setHeroSide(s => s === 'hero' ? 'alter_ego' : 'hero')}
+                        className="mt-2 w-full rounded border border-white/10 px-2 py-1 text-center text-[10px] text-[var(--color-text-muted)] transition hover:bg-white/5 hover:text-[var(--color-text)]"
+                      >
+                        {heroSide === 'hero' ? 'Alter Ego →' : '← Hero'}
+                      </button>
+                    )}
+                    {selectedCard && (
+                      <button
+                        onClick={() => setSelectedCard(null)}
+                        className="mt-2 w-full rounded border border-white/10 px-2 py-1 text-center text-[10px] text-[var(--color-text-muted)] transition hover:bg-white/5 hover:text-[var(--color-text)]"
+                      >
+                        ← Hero
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    {selectedCard
+                      ? <CardDetails card={selectedCard} />
+                      : <HeroDetails deck={openDeck} heroSide={heroSide} />
+                    }
+                  </div>
+                </div>
+
+                <div className="border-t border-white/10 px-4 py-3">
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Composition</p>
+                  <div className="mb-2 flex h-1.5 w-full overflow-hidden rounded-full">
+                    {typeBreakdown.map(([type, count]) => (
+                      <div
+                        key={type}
+                        className={`h-full ${TYPE_COLOR[type] ?? 'bg-gray-500'}`}
+                        style={{ width: `${(count / openDeck.total) * 100}%` }}
+                        title={`${formatType(type)}: ${count}`}
+                      />
+                    ))}
+                  </div>
+                  <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1">
+                    {typeBreakdown.map(([type, count]) => (
+                      <span key={type} className="flex items-center gap-1 text-[10px] text-[var(--color-text-muted)]">
+                        <span className={`inline-block h-2 w-2 flex-shrink-0 rounded-full ${TYPE_COLOR[type] ?? 'bg-gray-500'}`} />
+                        {formatType(type)} {count}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Cost Curve</p>
+                  <div className="flex gap-1">
+                    {COST_BUCKETS.map(cost => {
+                      const count = costBreakdown[cost];
+                      const barPx = count > 0 ? Math.max(4, Math.round((count / maxCostCount) * 36)) : 0;
+                      return (
+                        <div key={cost} className="flex flex-1 flex-col items-center">
+                          <span className={`mb-0.5 text-[10px] leading-none ${count > 0 ? '' : 'invisible'}`}>{count}</span>
+                          <div className="flex h-9 w-full items-end">
+                            <div
+                              className="w-full rounded-t-sm bg-[var(--color-primary)] transition-all duration-300"
+                              style={{ height: `${barPx}px` }}
+                            />
+                          </div>
+                          <span className="mt-0.5 text-[10px] leading-none text-[var(--color-text-muted)]">
+                            {cost === 6 ? '6+' : cost}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col border-t border-white/10 sm:w-[30%] sm:border-l sm:border-t-0">
+              <div className="flex-1 overflow-y-auto px-3 py-3">
                 {Object.entries(grouped).map(([type, cards]) => (
                   <div key={type} className="mb-4">
                     <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
@@ -367,12 +464,11 @@ export default function DeckGrid({ decks: initialDecks }: { decks: DeckPreview[]
                   </div>
                 ))}
               </div>
-
-              {/* Footer */}
-              <div className="border-t border-white/10 px-4 py-2 text-xs text-[var(--color-text-muted)]">
+              <div className="border-t border-white/10 px-3 py-2 text-xs text-[var(--color-text-muted)]">
                 {openDeck.total} cards · updated {openDeck.updatedAt}
               </div>
             </div>
+
           </div>
         </div>
       )}
