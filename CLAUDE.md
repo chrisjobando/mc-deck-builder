@@ -69,10 +69,28 @@ Common formatting helpers used across components and pages:
 
 - `formatCardText(text)` — converts `[[bold]]` syntax and `[energy]`/`[wild]` icons to HTML
 - `formatType(t)` — converts snake_case type strings to Title Case ("player_side_scheme" → "Player Side Scheme")
+- `formatTraits(traits)` — splits trait string ("Avenger. Spy.") into array
 - `TYPE_COLOR` — Tailwind bg-class map keyed by card type (ally, event, support, upgrade, resource, player_side_scheme)
-- `COST_BUCKETS` — `[0,1,2,3,4,5,6] as const` tuple used for cost curve charts
+- `COST_BUCKETS` — `[0,1,2,3,4] as const` tuple used for cost curve charts (index 4 = "4+")
+- `ASPECT_BG` — Tailwind bg-class map keyed by aspect name (Aggression → bg-red-700, etc.)
+- `ASPECT_DOT` — Tailwind bg-class map for aspect indicator dots (smaller/brighter variant)
+- `ASPECT_RING` — Tailwind ring-class map for aspect focus rings
+- `ASPECT_TEXT_COLOR` — Tailwind text-class map for aspect-colored text
 
 Import from here; do not re-implement in components.
+
+### Shared Session Utilities (`src/lib/sessions.ts`)
+
+In addition to async session helpers, exports:
+
+- `STATUS_LABEL` — human-readable label map for session status values (e.g. `draft` → `'Lobby'`)
+- `STATUS_COLOR` — Tailwind class map for session status badge colors
+
+### Shared General Utilities (`src/lib/utils.ts`)
+
+- `heroSlug(name, id)` — generates URL slug for hero pages
+- `WARLOCK_ID` — MarvelCDB card code for Adam Warlock (special multi-aspect handling)
+- `timeAgo(date)` — formats a Date as a relative string ("5m ago", "2h ago")
 
 ### TypeScript
 
