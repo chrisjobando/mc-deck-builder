@@ -30,4 +30,4 @@ export const TYPE_COLOR: Record<string, string> = {
   player_side_scheme: 'bg-orange-500',
 };
 
-export const COST_BUCKETS = [0, 1, 2, 3, 4, 5, 6] as const;
+export const COST_BUCKETS = [0, 1, 2, 3, 4] as const;

@@ -269,6 +269,7 @@ const ASPECT_FILTERS = [
         data-aspect={card.aspect || ''}
         data-name={card.name.toLowerCase()}
         data-hero-cards={card.type === 'hero' ? (heroSpecificNamesByHeroId.get(card.id) || '') : ''}
+        data-alter-ego={card.type === 'hero' ? card.identities.filter((i: any) => i.identityType === 'alter_ego').map((i: any) => i.name.toLowerCase()).join('|||') : ''}
         data-id={card.id}
       >
         <div class="aspect-[63/88] bg-black/50 relative overflow-hidden">
@@ -417,6 +418,7 @@ const ASPECT_FILTERS = [
       const aspect = el.dataset.aspect || '';
       const name = el.dataset.name || '';
       const heroCards = el.dataset.heroCards || '';
+      const alterEgo = el.dataset.alterEgo || '';
 
       const packMatch = allSelected || (packs.length > 0
         ? packs.some(p => selectedPacks.has(p))
@@ -424,7 +426,9 @@ const ASPECT_FILTERS = [
       const typeMatch = selectedType === 'all' || type === selectedType;
       const aspectMatch = selectedAspect === 'all' || aspect === selectedAspect;
       const q = searchQuery.toLowerCase();
-      const searchMatch = q === '' || name.includes(q) || (heroCards && heroCards.split('|||').some(n => n.includes(q)));
+      const searchMatch = q === '' || name.includes(q)
+        || (heroCards && heroCards.split('|||').some(n => n.includes(q)))
+        || (alterEgo && alterEgo.split('|||').some(n => n.includes(q)));
 
       if (packMatch && typeMatch && aspectMatch && searchMatch) {
         el.style.display = '';

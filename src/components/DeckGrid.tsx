@@ -265,7 +265,7 @@ export default function DeckGrid({ decks: initialDecks }: { decks: DeckPreview[]
   if (openDeck) {
     for (const c of openDeck.cards) {
       if (c.cost === null) continue;
-      costBreakdown[Math.min(c.cost, 6)] += c.quantity;
+      costBreakdown[Math.min(c.cost, 4)] += c.quantity;
     }
   }
   const maxCostCount = Math.max(...COST_BUCKETS.map(b => costBreakdown[b]), 1);
@@ -433,7 +433,7 @@ export default function DeckGrid({ decks: initialDecks }: { decks: DeckPreview[]
                             />
                           </div>
                           <span className="mt-0.5 text-[10px] leading-none text-[var(--color-text-muted)]">
-                            {cost === 6 ? '6+' : cost}
+                            {cost === 4 ? '4+' : cost}
                           </span>
                         </div>
                       );

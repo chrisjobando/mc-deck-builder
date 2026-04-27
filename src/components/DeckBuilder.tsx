@@ -955,7 +955,7 @@ export default function DeckBuilder() {
   const costBreakdown = COST_BUCKETS.reduce<Record<number, number>>((acc, b) => ({ ...acc, [b]: 0 }), {});
   for (const e of deckEntries) {
     if (e.card.cost === null) continue;
-    const b = Math.min(e.card.cost, 6);
+    const b = Math.min(e.card.cost, 4);
     costBreakdown[b] += e.quantity;
   }
   const maxCostCount = Math.max(...COST_BUCKETS.map(b => costBreakdown[b]), 1);
@@ -1269,7 +1269,7 @@ export default function DeckBuilder() {
                       />
                     </div>
                     <span className="mt-0.5 text-[10px] leading-none text-[var(--color-text-muted)]">
-                      {cost === 6 ? '6+' : cost}
+                      {cost === 4 ? '4+' : cost}
                     </span>
                   </div>
                 );
