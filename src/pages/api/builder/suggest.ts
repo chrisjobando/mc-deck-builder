@@ -36,6 +36,13 @@ interface HeroIdentity {
   name: string;
 }
 
+const FOCUS_INSTRUCTIONS: Record<string, string> = {
+  combos: 'Focus primarily on identifying card combos and synergies — lead with the Key Combos section.',
+  curve:  'Focus primarily on optimizing the cost curve — lead with cost curve analysis and specific cheap/expensive card swaps.',
+  fill:   'Focus primarily on recommending cards to add to reach 40 cards — prioritize the Suggested Changes section.',
+  cut:    'Focus primarily on identifying the weakest cards to cut down to 50 — prioritize the Suggested Changes section.',
+};
+
 function formatCardForPrompt(c: CardInfo): string {
   const parts: string[] = [`${c.name}`];
   parts.push(`(${c.aspect ?? 'Basic'}, ${c.type}, cost ${c.cost ?? '?'})`);
@@ -81,6 +88,7 @@ export const POST: APIRoute = async (context) => {
     cardPool?: CardInfo[];
     heroCards?: DeckCard[];
     isMultiAspect?: boolean;
+    focus?: string | null;
   };
   try {
     body = await request.json();
@@ -88,7 +96,7 @@ export const POST: APIRoute = async (context) => {
     return new Response('Invalid JSON', { status: 400 });
   }
 
-  const { heroName, heroIdentities = [], heroHealth, aspects = [], currentDeck = [], cardPool = [], heroCards = [], isMultiAspect = false } = body;
+  const { heroName, heroIdentities = [], heroHealth, aspects = [], currentDeck = [], cardPool = [], heroCards = [], isMultiAspect = false, focus } = body;
 
   if (!heroName) return new Response('Missing heroName', { status: 400 });
 
@@ -236,6 +244,8 @@ REMEMBER: Only reference cards from the lists provided. Use exact names and type
     })
     .join('\n');
 
+  const focusInstruction = focus && FOCUS_INSTRUCTIONS[focus] ? `\n\n${FOCUS_INSTRUCTIONS[focus]}` : '';
+
   const userMessage = `Hero: ${heroName}
 ${heroIdentitySection}
 Aspects: ${aspectList}${aspectBreakdown}
@@ -251,7 +261,7 @@ ${availableCards
   .join('\n')}
 ${availableCards.length > 80 ? `\n... and ${availableCards.length - 80} more cards` : ''}
 
-Analyze this deck and provide specific improvements.`;
+Analyze this deck and provide specific improvements.${focusInstruction}`;
 
   const result = streamText({
     model: google('gemini-2.5-flash'),

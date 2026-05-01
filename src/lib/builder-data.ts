@@ -50,6 +50,11 @@ export async function loadBuilderData() {
         identityType: i.identityType,
         imageUrl: i.imageUrl,
         name: i.name,
+        attack: i.attack,
+        thwart: i.thwart,
+        defense: i.defense,
+        handSize: i.handSize,
+        recover: i.recover,
       })),
     }));
 

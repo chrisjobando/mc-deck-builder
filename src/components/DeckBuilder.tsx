@@ -36,6 +36,11 @@ interface HeroIdentity {
   identityType: string;
   imageUrl: string | null;
   name: string;
+  attack: number | null;
+  thwart: number | null;
+  defense: number | null;
+  handSize: number | null;
+  recover: number | null;
 }
 
 interface HeroOption {
@@ -126,6 +131,119 @@ function serializeDeckCards(deck: Map<string, { quantity: number }>) {
   return [...deck.entries()].map(([id, e]) => ({ id, qty: e.quantity })).sort((a, b) => a.id.localeCompare(b.id));
 }
 
+function getHeroIdentity(hero: HeroOption): HeroIdentity {
+  return hero.identities.find(i => i.identityType.startsWith('hero')) ?? hero.identities[0];
+}
+
+function getAspectRecommendations(hero: HeroOption): Record<string, { score: number; reason: string }> {
+  const id = getHeroIdentity(hero);
+  const atk = id?.attack ?? 0;
+  const thw = id?.thwart ?? 0;
+  const def = id?.defense ?? 0;
+  const hp  = hero.health;
+
+  const recs: Record<string, { score: number; reason: string }> = {
+    Aggression: { score: 0, reason: 'Amplifies direct damage output' },
+    Justice:    { score: 0, reason: 'Boosts threat removal and control' },
+    Leadership: { score: 0, reason: 'Provides ally and resource support' },
+    Protection: { score: 0, reason: 'Adds defense and survivability' },
+    Pool:       { score: 0, reason: 'Hybrid damage and chaos effects' },
+  };
+
+  if (atk >= 3) recs.Aggression.score += 2;
+  if (atk >= 2) recs.Aggression.score += 1;
+  if (thw <= 1) recs.Aggression.score += 1;
+  if (atk >= 3) recs.Aggression.reason = 'Ideal for high-attack heroes';
+
+  if (thw >= 2) recs.Justice.score += 2;
+  if (thw >= 3) recs.Justice.score += 1;
+  if (atk <= 1) recs.Justice.score += 1;
+  if (thw >= 3) recs.Justice.reason = 'Great for strong thwarters';
+
+  if (atk >= 2 && thw >= 2) recs.Leadership.score += 2;
+  if (atk >= 1 && thw >= 1) recs.Leadership.score += 1;
+
+  if (def <= 1) recs.Protection.score += 2;
+  if (hp <= 10) recs.Protection.score += 2;
+  if (hp >= 13) recs.Protection.score -= 1;
+  if (def <= 1 || hp <= 10) recs.Protection.reason = 'Compensates for low defense/HP';
+
+  if (atk >= 3) recs.Pool.score += 1;
+  if (thw <= 1) recs.Pool.score += 1;
+
+  return recs;
+}
+
+interface CurveSummary {
+  label: string;
+  color: string;
+  bgColor: string;
+  warning?: string;
+}
+
+function getCurveSummary(costBreakdown: Record<number, number>): CurveSummary {
+  const { totalCosted, weightedSum } = [1, 2, 3, 4].reduce(
+    (acc, b) => { const n = costBreakdown[b] ?? 0; return { totalCosted: acc.totalCosted + n, weightedSum: acc.weightedSum + b * n }; },
+    { totalCosted: 0, weightedSum: 0 },
+  );
+  if (totalCosted === 0) return { label: 'No costed cards', color: 'text-gray-400', bgColor: 'bg-white/5' };
+
+  const avg = weightedSum / totalCosted;
+  const heavyPct = ((costBreakdown[3] ?? 0) + (costBreakdown[4] ?? 0)) / totalCosted;
+  const warning = heavyPct > 0.4 ? 'Consider adding cheaper cards' : undefined;
+
+  if (avg < 2.0) return { label: 'Efficient curve', color: 'text-green-400', bgColor: 'bg-green-900/20', warning };
+  if (avg <= 3.0) return { label: 'Balanced curve', color: 'text-blue-400', bgColor: 'bg-blue-900/20', warning };
+  return { label: 'Heavy curve', color: 'text-orange-400', bgColor: 'bg-orange-900/20', warning: warning ?? 'Many expensive cards' };
+}
+
+interface HeroSummary {
+  strengths: string[];
+  weaknesses: string[];
+  pairsSuggestion: string;
+}
+
+function getHeroStrengthsWeaknesses(hero: HeroOption): HeroSummary {
+  const id = getHeroIdentity(hero);
+  const atk  = id?.attack   ?? 0;
+  const thw  = id?.thwart   ?? 0;
+  const def  = id?.defense  ?? 0;
+  const rec  = id?.recover  ?? 0;
+  const hand = id?.handSize ?? 0;
+  const hp   = hero.health;
+
+  const strengths: string[] = [];
+  const weaknesses: string[] = [];
+
+  if (atk >= 3)  strengths.push('High damage');
+  if (thw >= 3)  strengths.push('Strong thwarter');
+  if (def >= 2)  strengths.push('Tanky defense');
+  if (rec >= 3)  strengths.push('Good recovery');
+  if (hp >= 12)  strengths.push('High health pool');
+  if (hand >= 6) strengths.push('Large hand size');
+
+  if (atk <= 1)  weaknesses.push('Weak attacker');
+  if (thw <= 1)  weaknesses.push('Poor thwarter');
+  if (def <= 0)  weaknesses.push('Fragile defense');
+  if (rec <= 2)  weaknesses.push('Slow recovery');
+  if (hp <= 9)   weaknesses.push('Low health pool');
+
+  let pairsSuggestion = 'Flexible — works with any aspect';
+  if (atk >= 3 && thw < 3) pairsSuggestion = 'Pairs well with Aggression or Pool';
+  else if (thw >= 3 && atk < 3) pairsSuggestion = 'Pairs well with Justice or Leadership';
+  else if (def <= 1 || hp <= 10) pairsSuggestion = 'Pairs well with Protection';
+
+  return { strengths, weaknesses, pairsSuggestion };
+}
+
+const SUGGESTION_PILLS = [
+  { label: 'Suggest swaps', focus: null },
+  { label: 'Find combos',   focus: 'combos' },
+  { label: 'Optimize curve', focus: 'curve' },
+  { label: 'Fill to 40',    focus: 'fill',  showIf: (n: number) => n < 40 },
+  { label: 'Cut to 40',     focus: 'cut',   showIf: (n: number) => n > 50 },
+] as const;
+
 const TYPE_FILTERS = [
   { value: 'all', label: 'All' },
   { value: 'ally', label: 'Allies' },
@@ -161,7 +279,7 @@ export default function DeckBuilder() {
   const [sessionContext, setSessionContext] = useState<SessionContext | null>(null);
   const [aiSuggestions, setAiSuggestions] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [activePromptFocus, setActivePromptFocus] = useState<string | null>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importInput, setImportInput] = useState('');
   const [importLoading, setImportLoading] = useState(false);
@@ -426,12 +544,12 @@ export default function DeckBuilder() {
     }
   }
 
-  async function requestAiSuggestions() {
+  async function requestAiSuggestions(focus: string | null = null) {
     if (!selectedHero || aiLoading) return;
-    
+
     setAiLoading(true);
     setAiSuggestions('');
-    setAiPanelOpen(true);
+    setActivePromptFocus(focus);
     
     try {
       // Prepare hero-specific cards
@@ -488,6 +606,7 @@ export default function DeckBuilder() {
           cardPool,
           heroCards,
           isMultiAspect: selectedHero.isMultiAspect,
+          focus,
         }),
       });
       
@@ -806,8 +925,7 @@ export default function DeckBuilder() {
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {filteredHeroes.map(hero => {
-            const primary =
-              hero.identities.find(i => i.identityType.startsWith('hero')) || hero.identities[0];
+            const primary = getHeroIdentity(hero);
             const alterEgo = hero.identities.find(i => i.identityType === 'alter_ego');
             return (
               <button
@@ -847,6 +965,8 @@ export default function DeckBuilder() {
   if (step === 'aspect') {
     const ownsDeadpool = ownedPacks.has('deadpool');
     const visibleAspects = ASPECTS.filter(a => a !== 'Pool' || !collectionOnly || ownsDeadpool);
+    const aspectRecs = selectedHero ? getAspectRecommendations(selectedHero) : null;
+    const maxRecScore = aspectRecs ? Math.max(...Object.values(aspectRecs).map(r => r.score)) : 0;
     return (
       <div className="mx-auto max-w-lg">
         <button
@@ -871,17 +991,27 @@ export default function DeckBuilder() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {visibleAspects.map(aspect => {
             const isSelected = selectedAspects.includes(aspect);
+            const rec = aspectRecs?.[aspect];
+            const isRecommended = rec && rec.score >= maxRecScore && maxRecScore > 0;
             return (
               <button
                 key={aspect}
                 onClick={() => toggleAspect(aspect)}
-                className={`rounded-lg px-4 py-6 text-center font-semibold transition ${ASPECT_BG[aspect]} ${
+                className={`relative rounded-lg px-4 pb-4 pt-6 text-center font-semibold transition ${ASPECT_BG[aspect]} ${
                   isSelected
                     ? `scale-105 ring-2 ${ASPECT_RING[aspect]}`
                     : 'opacity-60 hover:opacity-90'
                 }`}
               >
+                {isRecommended && (
+                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-bold text-black">
+                    ★ Recommended
+                  </span>
+                )}
                 {aspect}
+                {rec && (
+                  <span className="mt-1 block text-[10px] font-normal opacity-80">{rec.reason}</span>
+                )}
               </button>
             );
           })}
@@ -926,6 +1056,9 @@ export default function DeckBuilder() {
     costBreakdown[b] += e.quantity;
   }
   const maxCostCount = Math.max(...COST_BUCKETS.map(b => costBreakdown[b]), 1);
+  const curveSummary = getCurveSummary(costBreakdown);
+  const heroSummary = selectedHero ? getHeroStrengthsWeaknesses(selectedHero) : null;
+  const heroIdentity = selectedHero ? getHeroIdentity(selectedHero) : null;
 
   const sortedPool = [...filteredPool].sort((a, b) => {
     const aInDeck = (deck.get(a.id)?.quantity ?? 0) > 0;
@@ -1242,6 +1375,56 @@ export default function DeckBuilder() {
                 );
               })}
             </div>
+            {/* Curve label */}
+            <div className={`mt-3 rounded px-3 py-2 text-xs ${curveSummary.bgColor}`}>
+              <span className={`font-semibold ${curveSummary.color}`}>{curveSummary.label}</span>
+              {curveSummary.warning && (
+                <p className="mt-0.5 text-orange-300">{curveSummary.warning}</p>
+              )}
+            </div>
+          </div>
+
+          {/* AI Analysis */}
+          <div className="rounded-lg border border-white/10 bg-[var(--color-surface)] p-4">
+            <h2 className="mb-3 flex items-center gap-1.5 font-semibold">
+              <span>✨</span> AI Analysis
+            </h2>
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {SUGGESTION_PILLS.filter(pill => !('showIf' in pill) || pill.showIf(totalDeckSize)).map(pill => {
+                const isActive = activePromptFocus === pill.focus && (aiSuggestions || aiLoading);
+                return (
+                  <button
+                    key={pill.label}
+                    onClick={() => requestAiSuggestions(pill.focus)}
+                    disabled={aiLoading}
+                    className={`rounded-full px-3 py-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                      isActive
+                        ? 'bg-purple-600 text-white ring-2 ring-purple-400'
+                        : 'border border-white/10 text-[var(--color-text-muted)] hover:border-white/20 hover:text-[var(--color-text)]'
+                    }`}
+                  >
+                    {pill.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="min-h-[3rem]">
+              {aiLoading && !aiSuggestions && (
+                <div className="flex items-center gap-2 py-3 text-sm text-[var(--color-text-muted)]">
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-purple-400 border-t-transparent" />
+                  Analyzing your deck...
+                </div>
+              )}
+              {aiSuggestions && (
+                <div
+                  className="text-xs leading-relaxed [&_strong]:font-semibold [&_strong]:text-yellow-300 [&_ul]:list-none [&_ul]:pl-0 [&_li]:relative [&_li]:pl-4 [&_li]:before:absolute [&_li]:before:left-0 [&_li]:before:content-['•'] [&_li]:before:text-yellow-300"
+                  dangerouslySetInnerHTML={{ __html: formatAiResponse(aiSuggestions) }}
+                />
+              )}
+              {!aiLoading && !aiSuggestions && (
+                <p className="text-xs text-[var(--color-text-muted)]">Pick a focus above to get AI-powered deck suggestions.</p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1273,6 +1456,32 @@ export default function DeckBuilder() {
               </div>
             );
           })()}
+          {/* Hero Overview */}
+          {heroSummary && selectedHero && heroIdentity && (
+            <div className="rounded-lg border border-white/10 bg-[var(--color-surface)] p-3">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Hero Overview</p>
+              <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-[var(--color-text-muted)]">
+                {heroIdentity.attack != null && <span>ATK <strong className="text-white">{heroIdentity.attack}</strong></span>}
+                {heroIdentity.thwart != null && <span>THW <strong className="text-white">{heroIdentity.thwart}</strong></span>}
+                {heroIdentity.defense != null && <span>DEF <strong className="text-white">{heroIdentity.defense}</strong></span>}
+                {heroIdentity.recover != null && <span>REC <strong className="text-white">{heroIdentity.recover}</strong></span>}
+                {heroIdentity.handSize != null && <span>HAND <strong className="text-white">{heroIdentity.handSize}</strong></span>}
+                <span>HP <strong className="text-white">{selectedHero.health}</strong></span>
+              </div>
+              {(heroSummary.strengths.length > 0 || heroSummary.weaknesses.length > 0) && (
+                <div className="mb-2 flex flex-wrap gap-1">
+                  {heroSummary.strengths.map(s => (
+                    <span key={s} className="rounded bg-green-900/50 px-1.5 py-0.5 text-[10px] text-green-300">+ {s}</span>
+                  ))}
+                  {heroSummary.weaknesses.map(w => (
+                    <span key={w} className="rounded bg-red-900/50 px-1.5 py-0.5 text-[10px] text-red-300">− {w}</span>
+                  ))}
+                </div>
+              )}
+              <p className="text-[10px] text-[var(--color-text-muted)]">{heroSummary.pairsSuggestion}</p>
+            </div>
+          )}
+
           {/* Deck stats */}
           <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-white/10 bg-[var(--color-surface)] p-4">
             <div className="mb-2 flex items-center justify-between">
@@ -1359,7 +1568,7 @@ export default function DeckBuilder() {
         </div>
       </div>
       <CardModal card={modalCard} onClose={() => setModalCard(null)} />
-      
+
       {/* Import Dialog */}
       {importDialogOpen && (
         <>
@@ -1476,78 +1685,6 @@ export default function DeckBuilder() {
         </>
       )}
       
-      {/* Floating AI Button */}
-      <button
-        onClick={() => aiPanelOpen ? setAiPanelOpen(false) : requestAiSuggestions()}
-        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-purple-600 to-indigo-600 text-2xl shadow-lg transition-all hover:scale-105 hover:shadow-xl active:scale-95"
-        title="AI Suggestions"
-      >
-        ✨
-      </button>
-      
-      {/* AI Panel Overlay */}
-      {aiPanelOpen && (
-        <>
-          {/* Backdrop */}
-          <div 
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-            onClick={() => setAiPanelOpen(false)}
-          />
-          
-          {/* Slide-out Panel */}
-          <div className="fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-md flex-col border-l border-white/10 bg-[var(--color-bg)] shadow-2xl">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-              <h2 className="flex items-center gap-2 text-lg font-semibold">
-                <span>✨</span>
-                AI Suggestions
-              </h2>
-              <button
-                onClick={() => setAiPanelOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-muted)] transition hover:bg-white/10 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-            
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4">
-              {aiLoading && !aiSuggestions && (
-                <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-                  <span className="inline-block h-8 w-8 animate-spin rounded-full border-3 border-[var(--color-primary)] border-t-transparent" />
-                  <p className="text-sm text-[var(--color-text-muted)]">
-                    Analyzing your deck...
-                  </p>
-                </div>
-              )}
-              {aiSuggestions && (
-                <div 
-                  className="text-sm leading-relaxed [&_strong]:text-yellow-300 [&_strong]:font-semibold [&_ul]:list-none [&_ul]:pl-0 [&_li]:relative [&_li]:pl-5 [&_li]:before:content-['•'] [&_li]:before:absolute [&_li]:before:left-0 [&_li]:before:text-yellow-300"
-                  dangerouslySetInnerHTML={{ __html: formatAiResponse(aiSuggestions) }}
-                />
-              )}
-              {!aiLoading && !aiSuggestions && (
-                <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-                  <p className="text-sm text-[var(--color-text-muted)]">
-                    Click refresh to get AI-powered deck suggestions.
-                  </p>
-                </div>
-              )}
-            </div>
-            
-            {/* Footer */}
-            <div className="border-t border-white/10 p-4">
-              <button
-                onClick={requestAiSuggestions}
-                disabled={aiLoading}
-                className="w-full rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2.5 text-sm font-medium transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {aiLoading ? 'Analyzing...' : aiSuggestions ? 'Refresh Suggestions' : 'Get Suggestions'}
-              </button>
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 }
