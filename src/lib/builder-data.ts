@@ -1,13 +1,38 @@
 import { prisma } from './db';
 export { heroSlug, WARLOCK_ID } from './utils';
 
-export async function loadBuilderData() {
-  const heroes = await prisma.heroCard.findMany({
-    orderBy: { name: 'asc' },
-    include: { identities: true },
+export async function loadEncounterSets() {
+  const rows = await prisma.encounterCard.findMany({
+    where: { heroId: null },
+    select: { setCode: true, setName: true, setType: true, packName: true },
+    orderBy: { setName: 'asc' },
   });
+  const seen = new Set<string>();
+  const sets: { setCode: string; setName: string; setType: string; packName: string | null }[] = [];
+  for (const r of rows) {
+    if (!r.setName || seen.has(r.setCode)) continue;
+    seen.add(r.setCode);
+    sets.push({ setCode: r.setCode, setName: r.setName, setType: r.setType, packName: r.packName });
+  }
+  return sets;
+}
 
-  const rawCards = await prisma.deckCard.findMany({ orderBy: { name: 'asc' } });
+export async function loadBuilderData() {
+  const [heroes, rawCards, heroEncounterRows] = await Promise.all([
+    prisma.heroCard.findMany({ orderBy: { name: 'asc' }, include: { identities: true } }),
+    prisma.deckCard.findMany({ orderBy: { name: 'asc' } }),
+    prisma.encounterCard.findMany({
+      where: { heroId: { not: null } },
+      orderBy: [{ heroId: 'asc' }, { type: 'asc' }],
+    }),
+  ]);
+
+  const encounterByHero = new Map<string, typeof heroEncounterRows>();
+  for (const c of heroEncounterRows) {
+    if (!c.heroId) continue;
+    if (!encounterByHero.has(c.heroId)) encounterByHero.set(c.heroId, []);
+    encounterByHero.get(c.heroId)!.push(c);
+  }
 
   // Deduplicate cards by name + text + heroId (reprints collapse to one entry)
   // Prefer the printing that has an image over one that doesn't
@@ -31,7 +56,6 @@ export async function loadBuilderData() {
       s.add(card.packCode);
       cardPackCodesMap.set(key, s);
     }
-    // Track all card IDs (MarvelCDB codes) for this card
     const ids = cardAllIdsMap.get(key) ?? new Set<string>();
     ids.add(card.id);
     cardAllIdsMap.set(key, ids);
@@ -55,6 +79,19 @@ export async function loadBuilderData() {
         defense: i.defense,
         handSize: i.handSize,
         recover: i.recover,
+      })),
+      encounterCards: (encounterByHero.get(h.id) ?? []).map(c => ({
+        type: c.type,
+        name: c.name,
+        text: c.text,
+        traits: c.traits,
+        attack: c.attack,
+        health: c.health,
+        scheme: c.scheme,
+        baseThreat: c.baseThreat,
+        baseThreatFixed: c.baseThreatFixed,
+        isHealthPerHero: c.isHealthPerHero,
+        schemeAcceleration: c.schemeAcceleration,
       })),
     }));
 

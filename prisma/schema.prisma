@@ -77,6 +77,7 @@ model HeroCard {
   name          String
   health        Int
   isMultiAspect Boolean  @default(false) @map("is_multi_aspect")
+  cardSetCode   String?  @map("card_set_code") // For deck/encounter card relationship mapping
   packCode      String?  @map("pack_code")
   packName      String?  @map("pack_name")
   dataHash      String?  @map("data_hash") // MD5 hash for change detection
@@ -85,6 +86,7 @@ model HeroCard {
   identities          HeroIdentity[]
   decks               Deck[]
   deckCards           DeckCard[]
+  encounterCards      EncounterCard[]
   sessionParticipants SessionParticipant[]
 
   @@map("hero_cards")
@@ -137,12 +139,59 @@ model DeckCard {
   packCode            String?  @map("pack_code")
   packName            String?  @map("pack_name")
   heroId              String?  @map("hero_id")
+  setType             String?  @map("set_type") // hero | hero_special for hero-specific cards
   dataHash            String?  @map("data_hash") // MD5 hash for change detection
   syncedAt            DateTime @default(now()) @map("synced_at")
 
   hero HeroCard? @relation(fields: [heroId], references: [id])
 
   @@map("deck_cards")
+}
+
+// Hero encounter cards (obligation, nemesis, villain, modular encounter sets)
+model EncounterCard {
+  id                 String   @id
+  heroId             String?  @map("hero_id")
+  setCode            String   @map("set_code")
+  setName            String?  @map("set_name")
+  setType            String   @map("set_type") // hero | hero_special | villain | modular | scenario | campaign
+  name               String
+  type               String   // obligation | minion | treachery | side_scheme | villain | main_scheme | attachment | environment
+  text               String?
+  traits             String?
+  attack             Int?
+  health             Int?
+  scheme             Int?
+  baseThreat         Int?     @map("base_threat")
+  baseThreatFixed    Boolean  @default(false) @map("base_threat_fixed")
+  baseThreatPerGroup Boolean  @default(false) @map("base_threat_per_group")
+  isHealthPerHero    Boolean  @default(false) @map("is_health_per_hero")
+  schemeAcceleration Int?     @map("scheme_acceleration")
+  boost              Int?
+  imageUrl           String?  @map("image_url")
+  packCode           String?  @map("pack_code")
+  packName           String?  @map("pack_name")
+  quantity           Int      @default(1)
+  dataHash           String?  @map("data_hash")
+  syncedAt           DateTime @default(now()) @map("synced_at")
+
+  hero HeroCard? @relation(fields: [heroId], references: [id])
+
+  @@map("encounter_cards")
+}
+
+// Synced packs - tracks which packs have been synced and their state
+model SyncedPack {
+  code      String   @id
+  name      String
+  position  Int
+  available String?  // Release date
+  known     Int      // Known card count from API
+  total     Int      // Total card count from API
+  dataHash  String   @map("data_hash") // Hash of pack metadata for change detection
+  syncedAt  DateTime @default(now()) @map("synced_at")
+
+  @@map("synced_packs")
 }
 
 // Rules documents (for AI context/RAG)
@@ -184,10 +233,13 @@ model Session {
   
   hostId            String         @map("host_id")
   host              User           @relation("HostedSessions", fields: [hostId], references: [id])
-  
+
   collectionOwnerId String?        @map("collection_owner_id")
   collectionOwner   User?          @relation("CollectionOwner", fields: [collectionOwnerId], references: [id])
-  
+
+  villainSetCode    String?        @map("villain_set_code")
+  modularSetCodes   String[]       @default([]) @map("modular_set_codes")
+
   participants      SessionParticipant[]
 
   @@map("sessions")

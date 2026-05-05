@@ -3,25 +3,35 @@ import Layout from '../../layouts/Layout.astro';
 import { getUser } from '../../lib/auth';
 import { prisma } from '../../lib/db';
 import { STATUS_COLOR, STATUS_LABEL } from '../../lib/sessions';
+import { loadEncounterSets } from '../../lib/builder-data';
 
 const user = await getUser(Astro);
 if (!user) return Astro.redirect('/api/auth/signin');
 
-const sessions = await prisma.session.findMany({
-  where: {
-    OR: [
-      { hostId: user.id as string },
-      { participants: { some: { userId: user.id as string } } },
-    ],
-  },
-  include: {
-    participants: { select: { userId: true } },
-    host: { select: { name: true } },
-  },
-  orderBy: { updatedAt: 'desc' },
-});
+const [encounterSets, sessions] = await Promise.all([
+  loadEncounterSets(),
+  prisma.session.findMany({
+    where: {
+      OR: [
+        { hostId: user.id as string },
+        { participants: { some: { userId: user.id as string } } },
+      ],
+    },
+    include: {
+      participants: { select: { userId: true } },
+      host: { select: { name: true } },
+    },
+    orderBy: { updatedAt: 'desc' },
+  }),
+]);
 
 ---
+
+<div id="encounter-sets-data"
+  data-villain={JSON.stringify(encounterSets.filter(s => s.setType === 'villain'))}
+  data-modular={JSON.stringify(encounterSets.filter(s => s.setType === 'modular'))}
+  hidden
+></div>
 
 <Layout title="Sessions">
   <div class="mb-8 flex items-center justify-between">
@@ -72,6 +82,38 @@ const sessions = await prisma.session.findMany({
                 <div class="text-xs text-[var(--color-text-muted)]">Use only your collection</div>
               </div>
             </label>
+          </div>
+        </div>
+        <div>
+          <label class="mb-1 block text-sm text-[var(--color-text-muted)]">Scenario <span class="text-xs opacity-60">(optional - for AI suggestions)</span></label>
+          <input
+            id="villain-search"
+            type="text"
+            placeholder="Search villain or scenario"
+            autocomplete="off"
+            class="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]"
+          />
+          <input type="hidden" name="villainSetCode" id="villain-code" />
+          <div id="villain-dropdown" class="relative hidden">
+            <ul class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-white/10 bg-[var(--color-bg)] shadow-xl"></ul>
+          </div>
+          <div id="villain-selected" class="hidden mt-2 flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm">
+            <span id="villain-selected-name" class="font-medium"></span>
+            <button type="button" id="villain-clear" class="ml-2 text-xs text-[var(--color-text-muted)] hover:text-white">✕</button>
+          </div>
+          <div class="mt-2">
+            <input
+              id="modular-search"
+              type="text"
+              placeholder="Add modular set"
+              autocomplete="off"
+              class="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]"
+            />
+            <div id="modular-dropdown" class="relative hidden">
+              <ul class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-white/10 bg-[var(--color-bg)] shadow-xl"></ul>
+            </div>
+            <div id="modular-pills" class="mt-2 flex flex-wrap gap-1.5"></div>
+            <input type="hidden" name="modularSetCodes" id="modular-codes" value="[]" />
           </div>
         </div>
         <div id="create-error" class="hidden rounded-lg bg-red-500/20 px-4 py-2 text-sm text-red-300"></div>
@@ -152,6 +194,101 @@ const sessions = await prisma.session.findMany({
 <script>
   import { showAlert, showConfirm } from '../../lib/dialog';
 
+  // --- Encounter set dropdowns ---
+  type EncounterSet = { setCode: string; setName: string; setType: string; packName: string | null };
+  const setsEl = document.getElementById('encounter-sets-data')!;
+  const villainSets: EncounterSet[] = JSON.parse(setsEl.dataset.villain ?? '[]');
+  const modularSets: EncounterSet[] = JSON.parse(setsEl.dataset.modular ?? '[]');
+
+  const villainSearch = document.getElementById('villain-search') as HTMLInputElement;
+  const villainCode = document.getElementById('villain-code') as HTMLInputElement;
+  const villainDropdownWrap = document.getElementById('villain-dropdown')!;
+  const villainDropdownList = villainDropdownWrap.querySelector('ul')!;
+  const villainSelected = document.getElementById('villain-selected')!;
+  const villainSelectedName = document.getElementById('villain-selected-name')!;
+  const villainClear = document.getElementById('villain-clear')!;
+
+  const modularSearch = document.getElementById('modular-search') as HTMLInputElement;
+  const modularDropdownWrap = document.getElementById('modular-dropdown')!;
+  const modularDropdownList = modularDropdownWrap.querySelector('ul')!;
+  const modularPills = document.getElementById('modular-pills')!;
+  const modularCodesInput = document.getElementById('modular-codes') as HTMLInputElement;
+
+  let selectedModular: EncounterSet[] = [];
+
+  function renderDropdown(
+    list: HTMLUListElement,
+    wrap: HTMLElement,
+    items: EncounterSet[],
+    onSelect: (item: EncounterSet) => void,
+  ) {
+    list.innerHTML = '';
+    if (items.length === 0) { wrap.classList.add('hidden'); return; }
+    for (const item of items) {
+      const li = document.createElement('li');
+      li.className = 'cursor-pointer px-4 py-2 text-sm hover:bg-white/10';
+      li.textContent = item.setName + (item.packName ? ` — ${item.packName}` : '');
+      li.addEventListener('mousedown', (e) => { e.preventDefault(); onSelect(item); });
+      list.appendChild(li);
+    }
+    wrap.classList.remove('hidden');
+  }
+
+  function filterSets(sets: EncounterSet[], query: string) {
+    const q = query.toLowerCase();
+    return sets.filter(s => s.setName.toLowerCase().includes(q) || (s.packName ?? '').toLowerCase().includes(q));
+  }
+
+  // Villain dropdown
+  villainSearch.addEventListener('input', () => {
+    const matches = filterSets(villainSets, villainSearch.value);
+    renderDropdown(villainDropdownList, villainDropdownWrap, matches, (item) => {
+      villainCode.value = item.setCode;
+      villainSearch.value = '';
+      villainSearch.classList.add('hidden');
+      villainSelectedName.textContent = item.setName;
+      villainSelected.classList.remove('hidden');
+      villainDropdownWrap.classList.add('hidden');
+    });
+  });
+  villainSearch.addEventListener('blur', () => setTimeout(() => villainDropdownWrap.classList.add('hidden'), 150));
+
+  villainClear.addEventListener('click', () => {
+    villainCode.value = '';
+    villainSelected.classList.add('hidden');
+    villainSearch.classList.remove('hidden');
+    villainSearch.value = '';
+  });
+
+  // Modular dropdown
+  function renderModularPills() {
+    modularPills.innerHTML = '';
+    modularCodesInput.value = JSON.stringify(selectedModular.map(s => s.setCode));
+    for (const item of selectedModular) {
+      const pill = document.createElement('span');
+      pill.className = 'flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-xs';
+      pill.innerHTML = `${item.setName} <button type="button" class="ml-1 opacity-60 hover:opacity-100" data-code="${item.setCode}">✕</button>`;
+      pill.querySelector('button')!.addEventListener('click', () => {
+        selectedModular = selectedModular.filter(s => s.setCode !== item.setCode);
+        renderModularPills();
+      });
+      modularPills.appendChild(pill);
+    }
+  }
+
+  modularSearch.addEventListener('input', () => {
+    const already = new Set(selectedModular.map(s => s.setCode));
+    const matches = filterSets(modularSets, modularSearch.value).filter(s => !already.has(s.setCode));
+    renderDropdown(modularDropdownList, modularDropdownWrap, matches, (item) => {
+      selectedModular.push(item);
+      renderModularPills();
+      modularSearch.value = '';
+      modularDropdownWrap.classList.add('hidden');
+    });
+  });
+  modularSearch.addEventListener('blur', () => setTimeout(() => modularDropdownWrap.classList.add('hidden'), 150));
+
+  // --- Forms ---
   const createForm = document.getElementById('create-form') as HTMLFormElement;
   const joinForm = document.getElementById('join-form') as HTMLFormElement;
   const createError = document.getElementById('create-error')!;
@@ -177,6 +314,8 @@ const sessions = await prisma.session.findMany({
         body: JSON.stringify({
           name: data.get('name'),
           collectionMode: data.get('collectionMode'),
+          villainSetCode: (data.get('villainSetCode') as string) || null,
+          modularSetCodes: JSON.parse((data.get('modularSetCodes') as string) || '[]'),
         }),
       });
       const json = await res.json();

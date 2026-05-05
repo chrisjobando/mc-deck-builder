@@ -47,8 +47,11 @@ const allCards = [
     .filter((h: HeroCard) => identitiesByHero[h.id]?.length > 0) // Filter out heroes with no identities
     .map((h: HeroCard) => {
     const heroIdentitiesList = identitiesByHero[h.id] || [];
-    // Find the first hero identity for display in grid
-    const primaryIdentity = heroIdentitiesList.find((i: HeroIdentity) => i.identityType.startsWith('hero')) || heroIdentitiesList[0];
+    // Find the primary hero identity (hero or hero_1) for display in grid
+    const sortedHeroIdentities = [...heroIdentitiesList]
+      .filter((i: HeroIdentity) => i.identityType.startsWith('hero'))
+      .sort((a: HeroIdentity, b: HeroIdentity) => a.identityType.localeCompare(b.identityType));
+    const primaryIdentity = sortedHeroIdentities[0] || heroIdentitiesList[0];
     
     return {
       id: h.id,
@@ -131,6 +134,7 @@ const allCards = [
       isUnique: c.isUnique,
       heroId: c.heroId,
       heroName: c.heroId ? heroNameById.get(c.heroId) || null : null,
+      setType: (c as any).setType as string | null,
       // Resource (only one type per card, but can have count > 1)
       resourceEnergy: c.resourceEnergy,
       resourceMental: c.resourceMental,
@@ -335,9 +339,9 @@ const ASPECT_FILTERS = [
 
   <!-- Card Detail Modal -->
   <div id="card-modal" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4">
-    <div class="bg-[var(--color-surface)] rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto relative">
-      <button id="modal-close" class="absolute top-3 right-3 flex h-10 w-10 items-center justify-center rounded-full text-2xl hover:bg-white/10 hover:text-[var(--color-primary)]">&times;</button>
-      <div class="p-4 sm:p-6" id="modal-content">
+    <div class="bg-[var(--color-surface)] rounded-xl max-w-4xl w-full h-[75vh] overflow-hidden relative flex flex-col">
+      <button id="modal-close" class="absolute top-3 right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full text-2xl hover:bg-white/10 hover:text-[var(--color-primary)]">&times;</button>
+      <div class="p-4 sm:p-6 flex-1 min-h-0 overflow-y-auto flex flex-col" id="modal-content">
         <!-- Content injected by JS -->
       </div>
     </div>
@@ -566,11 +570,12 @@ const ASPECT_FILTERS = [
   function renderHeroModal(card: any, identityIndex: number) {
     if (!modalContent) return;
 
-    // Sort so alter ego is always last in the switcher
+    // Sort so hero forms come first (hero_1, hero_2, etc.), alter ego last
     const identities = [...(card.identities || [])].sort((a: any, b: any) => {
       if (a.identityType === 'alter_ego') return 1;
       if (b.identityType === 'alter_ego') return -1;
-      return 0;
+      // Sort hero forms by their number (hero < hero_1 < hero_2)
+      return a.identityType.localeCompare(b.identityType);
     });
     const identity = identities[identityIndex] || identities[0];
 
@@ -582,7 +587,7 @@ const ASPECT_FILTERS = [
     let identityToggleHtml = '';
     if (identities.length > 1) {
       identityToggleHtml = `
-        <div class="flex flex-wrap gap-2 mb-4" id="identity-toggles">
+        <div class="flex flex-wrap gap-2 mt-3" id="identity-toggles">
           ${identities.map((id: any, idx: number) => `
             <button 
               class="identity-toggle px-3 py-2 rounded-lg text-sm font-medium inline-flex items-center justify-center leading-none transition-all ${
@@ -639,26 +644,43 @@ const ASPECT_FILTERS = [
       </div>
     ` : '';
 
-    // Find hero-specific cards for this hero
-    const heroSpecificCards = allCardsData.filter((c: any) => c.heroId === card.id);
+    // setType='hero' = regular hero-specific cards; setType=deck name ('Invocation' etc.) = special sub-decks
+    const heroSpecificCards = allCardsData.filter((c: any) => c.heroId === card.id && c.setType === 'hero');
     const heroCardCount = heroSpecificCards.reduce((sum: number, c: any) => sum + (c.quantity || 1), 0);
     const heroSpecificCardsHtml = heroSpecificCards.length > 0 ? `
-      <div class="mt-6 pt-6 border-t border-white/10">
-        <button id="view-hero-cards-btn" class="flex items-center justify-between w-full px-4 py-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors group">
-          <span class="font-semibold">Hero-Specific Cards</span>
+      <button id="view-hero-cards-btn" class="flex items-center justify-between w-full px-4 py-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors group">
+        <span class="font-semibold">Hero-Specific Cards</span>
+        <span class="flex items-center gap-2 text-[var(--color-text-muted)]">
+          <span class="text-sm">${heroCardCount} cards</span>
+          <span class="group-hover:translate-x-0.5 transition-transform">→</span>
+        </span>
+      </button>
+    ` : '';
+
+    const specialDeckMap = new Map<string, any[]>();
+    for (const c of allCardsData.filter((c: any) => c.heroId === card.id && c.setType !== null && c.setType !== 'hero')) {
+      const arr = specialDeckMap.get(c.setType) ?? [];
+      arr.push(c);
+      specialDeckMap.set(c.setType, arr);
+    }
+    const heroSpecialCardsHtml = [...specialDeckMap.entries()].map(([deckName, deckCards]) => {
+      const count = deckCards.reduce((sum: number, c: any) => sum + (c.quantity || 1), 0);
+      return `
+        <button class="view-hero-special-btn flex items-center justify-between w-full px-4 py-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors group" data-set-type="${deckName}">
+          <span class="font-semibold">${deckName}</span>
           <span class="flex items-center gap-2 text-[var(--color-text-muted)]">
-            <span class="text-sm">${heroCardCount} cards</span>
+            <span class="text-sm">${count} cards</span>
             <span class="group-hover:translate-x-0.5 transition-transform">→</span>
           </span>
         </button>
-      </div>
-    ` : '';
+      `;
+    }).join('');
 
     const imageUrl = identity?.imageUrl || card.imageUrl;
     const displayName = identity?.name || card.name;
 
     modalContent.innerHTML = `
-      <div class="flex flex-col md:flex-row gap-6">
+      <div class="flex flex-col md:flex-row gap-6 flex-1 min-h-0">
         <div class="${isLandscapeIdentity ? 'md:w-1/2' : 'md:w-1/3'} flex-shrink-0">
           <div class="${isLandscapeIdentity ? 'aspect-[88/63]' : 'aspect-[63/88]'} relative rounded-lg overflow-hidden shadow-lg bg-black/50">
             ${imageUrl ? `
@@ -669,8 +691,9 @@ const ASPECT_FILTERS = [
               </div>
             `}
           </div>
+          ${identityToggleHtml}
         </div>
-        <div class="${isLandscapeIdentity ? 'md:w-1/2' : 'md:w-2/3'}">
+        <div class="${isLandscapeIdentity ? 'md:w-1/2' : 'md:w-2/3'} flex flex-col">
           <div class="mb-4">
             <h2 class="text-2xl font-bold mb-2" id="modal-name">${displayName}</h2>
             <div class="flex flex-wrap items-center gap-2">
@@ -681,8 +704,6 @@ const ASPECT_FILTERS = [
             </div>
           </div>
 
-          ${identityToggleHtml}
-
           <div class="flex flex-wrap gap-2 mb-4">
             ${formatTraits(identity?.traits)}
           </div>
@@ -690,15 +711,17 @@ const ASPECT_FILTERS = [
           ${statsHtml}
           ${textHtml}
 
-          <div class="flex flex-wrap gap-4 text-sm text-[var(--color-text-muted)]">
-            <div><strong>${card.packs?.length > 1 ? 'Packs' : 'Pack'}:</strong>
-              ${card.packs?.length > 1
-                ? card.packs.map((p: any) => `<span class="filter-pill cursor-pointer hover:text-[var(--color-primary)] underline" data-filter-pack="${p.code}">${p.name}</span>`).join(', ')
-                : `<span class="filter-pill cursor-pointer hover:text-[var(--color-primary)] underline" data-filter-pack="${card.packCode}">${card.packName}</span>`}
+          <div class="mt-auto pt-4 flex flex-col gap-3">
+            <div class="flex flex-wrap gap-4 text-sm text-[var(--color-text-muted)]">
+              <div><strong>${card.packs?.length > 1 ? 'Packs' : 'Pack'}:</strong>
+                ${card.packs?.length > 1
+                  ? card.packs.map((p: any) => `<span class="filter-pill cursor-pointer hover:text-[var(--color-primary)] underline" data-filter-pack="${p.code}">${p.name}</span>`).join(', ')
+                  : `<span class="filter-pill cursor-pointer hover:text-[var(--color-primary)] underline" data-filter-pack="${card.packCode}">${card.packName}</span>`}
+              </div>
             </div>
+            ${heroSpecificCardsHtml}
+            ${heroSpecialCardsHtml}
           </div>
-
-          ${heroSpecificCardsHtml}
         </div>
       </div>
     `;
@@ -721,17 +744,28 @@ const ASPECT_FILTERS = [
     // View hero cards page button
     const viewHeroCardsBtn = modalContent.querySelector('#view-hero-cards-btn');
     viewHeroCardsBtn?.addEventListener('click', () => {
-      renderHeroCardsPage(card);
+      renderHeroCardsPage(card, 'hero');
+    });
+
+    // View hero special cards page buttons (Weather Deck, Invocation Deck, Labor Deck, etc.)
+    modalContent.querySelectorAll('.view-hero-special-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        renderHeroCardsPage(card, 'hero_special', (btn as HTMLElement).dataset.setType);
+      });
     });
   }
 
-  function renderHeroCardsPage(heroCard: any) {
+  function renderHeroCardsPage(heroCard: any, setTypeFilter: 'hero' | 'hero_special' = 'hero', setTypeName?: string) {
     if (!modalContent) return;
 
     const heroSpecificCards = allCardsData
-      .filter((c: any) => c.heroId === heroCard.id)
+      .filter((c: any) => c.heroId === heroCard.id && (setTypeFilter === 'hero_special' ? (setTypeName ? c.setType === setTypeName : (c.setType !== null && c.setType !== 'hero')) : c.setType === 'hero'))
       .sort((a: any, b: any) => (a.isPermanent ? 0 : 1) - (b.isPermanent ? 0 : 1));
     const totalCount = heroSpecificCards.reduce((sum: number, c: any) => sum + (c.quantity || 1), 0);
+
+    const sectionTitle = setTypeFilter === 'hero_special'
+      ? (setTypeName ?? heroSpecificCards[0]?.setType ?? 'Special Deck')
+      : 'Hero-Specific Cards';
 
     modalContent.innerHTML = `
       <div>
@@ -739,7 +773,7 @@ const ASPECT_FILTERS = [
           <span>←</span> Back to ${heroCard.name}
         </button>
         <h2 class="text-2xl font-bold mb-1">${heroCard.name}</h2>
-        <p class="text-[var(--color-text-muted)] mb-6">${totalCount} hero-specific cards</p>
+        <p class="text-[var(--color-text-muted)] mb-6">${totalCount} ${sectionTitle.toLowerCase()}</p>
         <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
           ${heroSpecificCards.map((c: any) => `
             <div class="hero-card-item bg-[var(--color-surface)] rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-[var(--color-primary)]" data-card-id="${c.id}">

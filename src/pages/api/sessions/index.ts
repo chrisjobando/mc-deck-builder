@@ -11,14 +11,14 @@ export const POST: APIRoute = async (context) => {
   if (authResult instanceof Response) return authResult;
   const user = authResult;
 
-  let body: { name?: string; collectionMode?: string; collectionOwnerId?: string };
+  let body: { name?: string; collectionMode?: string; collectionOwnerId?: string; villainSetCode?: string; modularSetCodes?: string[] };
   try {
     body = await context.request.json();
   } catch {
     return json({ error: 'Invalid JSON' }, 400);
   }
 
-  const { name, collectionMode, collectionOwnerId } = body;
+  const { name, collectionMode, collectionOwnerId, villainSetCode, modularSetCodes } = body;
 
   if (!name?.trim()) return json({ error: 'Name is required' }, 400);
   if (!['single', 'combined', 'duplicates'].includes(collectionMode ?? ''))
@@ -40,6 +40,8 @@ export const POST: APIRoute = async (context) => {
             collectionMode === 'single'
               ? (collectionOwnerId ?? (user.id as string))
               : null,
+          villainSetCode: villainSetCode ?? null,
+          modularSetCodes: Array.isArray(modularSetCodes) ? modularSetCodes : [],
           participants: {
             create: { userId: user.id as string },
           },
