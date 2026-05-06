@@ -140,6 +140,7 @@ model DeckCard {
   packName            String?  @map("pack_name")
   heroId              String?  @map("hero_id")
   setType             String?  @map("set_type") // hero | hero_special for hero-specific cards
+  setPosition         Int?     @map("set_position")
   dataHash            String?  @map("data_hash") // MD5 hash for change detection
   syncedAt            DateTime @default(now()) @map("synced_at")
 
@@ -172,6 +173,7 @@ model EncounterCard {
   packCode           String?  @map("pack_code")
   packName           String?  @map("pack_name")
   quantity           Int      @default(1)
+  setPosition        Int?     @map("set_position")
   dataHash           String?  @map("data_hash")
   syncedAt           DateTime @default(now()) @map("synced_at")
 

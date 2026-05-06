@@ -9,6 +9,33 @@ if (!databaseUrl) throw new Error('DATABASE_URL is not set');
 
 const sql = postgres(databaseUrl, { prepare: false, max: 1 });
 const forceSync = process.argv.includes('--force');
+const dryRun = process.argv.includes('--dry-run');
+
+const packFilter = new Set<string>();
+for (let i = 0; i < process.argv.length; i++) {
+  if (process.argv[i] === '--pack') {
+    if (!process.argv[i + 1]) { console.error('❌ --pack requires a value (e.g. --pack core)'); process.exit(1); }
+    packFilter.add(process.argv[i + 1]);
+    i++;
+  }
+}
+
+type Phase = 'heroes' | 'deck' | 'encounter';
+const VALID_PHASES = new Set<Phase>(['heroes', 'deck', 'encounter']);
+const onlyPhases = new Set<Phase>();
+for (let i = 0; i < process.argv.length; i++) {
+  if (process.argv[i] === '--only') {
+    if (!process.argv[i + 1]) { console.error('❌ --only requires a value: heroes, deck, encounter'); process.exit(1); }
+    const val = process.argv[i + 1] as Phase;
+    if (!VALID_PHASES.has(val)) { console.error(`❌ Unknown phase: "${val}". Valid: heroes, deck, encounter`); process.exit(1); }
+    onlyPhases.add(val);
+    i++;
+  }
+}
+
+const runHeroes    = onlyPhases.size === 0 || onlyPhases.has('heroes');
+const runDeck      = onlyPhases.size === 0 || onlyPhases.has('deck');
+const runEncounter = onlyPhases.size === 0 || onlyPhases.has('encounter');
 
 interface MarvelCDBCard {
   code: string;
@@ -49,6 +76,7 @@ interface MarvelCDBCard {
   scheme_acceleration?: number;
   boost?: number;
   card_set_name?: string;
+  set_position?: number;
   // For hero_special sub-sets, links back to the parent hero's card_set_code
   card_set_parent_code?: string;
   // Linked cards (e.g., alter_ego linked to hero)
@@ -121,7 +149,10 @@ async function fetchJson<T>(url: string): Promise<T> {
 
 async function syncCards(): Promise<void> {
   console.log('🚀 Starting MarvelCDB sync...\n');
-  if (forceSync) console.log('⚠️  Force sync enabled - all cards will be updated\n');
+  if (forceSync)       console.log('⚠️  Force sync enabled — all cards will be updated\n');
+  if (dryRun)          console.log('🔍 Dry-run mode — no database writes will occur\n');
+  if (packFilter.size) console.log(`📌 Pack filter: ${[...packFilter].join(', ')}\n`);
+  if (onlyPhases.size) console.log(`🔎 Phase filter: ${[...onlyPhases].join(', ')}\n`);
 
   const [apiPacks, existingSyncedPacks] = await Promise.all([
     fetchJson<MarvelCDBPack[]>(`${MARVELCDB_BASE}/api/public/packs/`),
@@ -131,6 +162,16 @@ async function syncCards(): Promise<void> {
   const syncedPackMap = new Map(existingSyncedPacks.map((p) => [p.code, p.data_hash]));
   console.log(`  ${syncedPackMap.size} packs already synced\n`);
 
+  if (packFilter.size > 0) {
+    const apiPackCodes = new Set(apiPacks.map(p => p.code));
+    for (const code of packFilter) {
+      if (!apiPackCodes.has(code)) {
+        console.error(`❌ Unknown pack code: "${code}". Run without --pack to see available packs.`);
+        process.exit(1);
+      }
+    }
+  }
+
   // Determine which packs need syncing; cache hash for reuse when writing synced_packs
   const packHashMap = new Map<string, string>();
   const packsToSync: MarvelCDBPack[] = [];
@@ -138,7 +179,7 @@ async function syncCards(): Promise<void> {
     const packHash = computeHash({ name: pack.name, position: pack.position, available: pack.available, known: pack.known, total: pack.total });
     packHashMap.set(pack.code, packHash);
     const existingHash = syncedPackMap.get(pack.code);
-    if (forceSync || !existingHash || existingHash !== packHash) {
+    if (forceSync || packFilter.has(pack.code) || !existingHash || existingHash !== packHash) {
       packsToSync.push(pack);
     }
   }
@@ -170,9 +211,9 @@ async function syncCards(): Promise<void> {
   console.log('Loading existing card hashes...');
   const [existingHeroRows, existingIdentities, existingDeckCards, existingEncounterCards] = await Promise.all([
     sql<HeroRow[]>`SELECT id, data_hash, card_set_code FROM hero_cards`,
-    sql<HashRow[]>`SELECT id, data_hash FROM hero_identities`,
-    sql<HashRow[]>`SELECT id, data_hash FROM deck_cards`,
-    sql<HashRow[]>`SELECT id, data_hash FROM encounter_cards`,
+    runHeroes    ? sql<HashRow[]>`SELECT id, data_hash FROM hero_identities`  : Promise.resolve([]),
+    runDeck      ? sql<HashRow[]>`SELECT id, data_hash FROM deck_cards`       : Promise.resolve([]),
+    runEncounter ? sql<HashRow[]>`SELECT id, data_hash FROM encounter_cards`  : Promise.resolve([]),
   ]);
 
   const heroHashMap = new Map(existingHeroRows.map((c) => [c.id, c.data_hash]));
@@ -226,7 +267,8 @@ async function syncCards(): Promise<void> {
     if (hasAlterEgo) validHeroSets.add(card.card_set_code);
   }
 
-  // Sync hero cards
+  // Sync hero cards + identities
+  if (runHeroes) {
   console.log('Syncing hero cards...');
   const heroStats: SyncStats = { new: 0, updated: 0, skipped: 0 };
   for (const card of heroCards) {
@@ -261,7 +303,7 @@ async function syncCards(): Promise<void> {
       continue;
     }
 
-    await sql`
+    if (!dryRun) await sql`
       INSERT INTO hero_cards (
         id, name, health, is_multi_aspect, card_set_code, pack_code, pack_name, data_hash, synced_at
       ) VALUES (
@@ -320,7 +362,7 @@ async function syncCards(): Promise<void> {
       return;
     }
 
-    await sql`
+    if (!dryRun) await sql`
       INSERT INTO hero_identities (
         id, hero_id, identity_type, name, attack, defense, hand_size,
         image_url, recover, text, thwart, traits, data_hash
@@ -387,8 +429,12 @@ async function syncCards(): Promise<void> {
   console.log(
     `✓ Identities: ${identityStats.new} new, ${identityStats.updated} updated, ${identityStats.skipped} skipped\n`
   );
+  } else {
+    console.log('⏭  Skipping heroes + identities (--only filter)\n');
+  }
 
   // Sync deck cards
+  if (runDeck) {
   console.log('Syncing deck cards...');
   const deckStats: SyncStats = { new: 0, updated: 0, skipped: 0 };
   for (const card of deckCards) {
@@ -429,6 +475,7 @@ async function syncCards(): Promise<void> {
       resourcePhysical: card.resource_physical ?? null,
       resourceWild: card.resource_wild ?? null,
       setType,
+      setPosition: card.set_position ?? null,
       text: card.text ?? null,
       thwart: card.thwart ?? null,
       thwartCost: card.thwart_cost ?? null,
@@ -443,12 +490,12 @@ async function syncCards(): Promise<void> {
       continue;
     }
 
-    await sql`
+    if (!dryRun) await sql`
       INSERT INTO deck_cards (
         id, name, aspect, attack, attack_consequential, cost, deck_limit,
         health, hero_id, image_url, is_permanent, is_unique, pack_code, pack_name, quantity,
         resource_energy, resource_mental, resource_physical, resource_wild,
-        set_type, data_hash, synced_at, text, thwart, thwart_consequential, traits, type
+        set_type, set_position, data_hash, synced_at, text, thwart, thwart_consequential, traits, type
       ) VALUES (
         ${card.code},
         ${card.name},
@@ -470,6 +517,7 @@ async function syncCards(): Promise<void> {
         ${card.resource_physical ?? null},
         ${card.resource_wild ?? null},
         ${setType},
+        ${card.set_position ?? null},
         ${dataHash},
         NOW(),
         ${card.text ?? null},
@@ -498,6 +546,7 @@ async function syncCards(): Promise<void> {
         resource_physical = EXCLUDED.resource_physical,
         resource_wild = EXCLUDED.resource_wild,
         set_type = EXCLUDED.set_type,
+        set_position = EXCLUDED.set_position,
         data_hash = EXCLUDED.data_hash,
         synced_at = NOW(),
         text = EXCLUDED.text,
@@ -524,12 +573,20 @@ async function syncCards(): Promise<void> {
   );
   const modularIds = modularCards.map((c) => c.code);
   if (modularIds.length > 0) {
-    const deleted = await sql`DELETE FROM deck_cards WHERE id = ANY(${modularIds}) RETURNING id`;
-    if (deleted.length > 0) console.log(`🗑️  Removed ${deleted.length} modular/encounter cards\n`);
-    else console.log(`✓ No modular cards to remove\n`);
+    if (dryRun) {
+      console.log(`[dry-run] Would remove ${modularIds.length} modular/encounter cards\n`);
+    } else {
+      const deleted = await sql`DELETE FROM deck_cards WHERE id = ANY(${modularIds}) RETURNING id`;
+      if (deleted.length > 0) console.log(`🗑️  Removed ${deleted.length} modular/encounter cards\n`);
+      else console.log(`✓ No modular cards to remove\n`);
+    }
+  }
+  } else {
+    console.log('⏭  Skipping deck cards (--only filter)\n');
   }
 
   // Sync encounter cards (obligation, nemesis, villain, modular, scenario)
+  if (runEncounter) {
   console.log('Syncing encounter cards...');
   const encounterStats: SyncStats = { new: 0, updated: 0, skipped: 0 };
   for (const card of allEncounterCards) {
@@ -557,6 +614,7 @@ async function syncCards(): Promise<void> {
       boost: card.boost ?? null,
       packCode: card.pack_code,
       quantity: card.quantity ?? 1,
+      setPosition: card.set_position ?? null,
     };
     const dataHash = computeHash(hashData);
 
@@ -566,12 +624,12 @@ async function syncCards(): Promise<void> {
       continue;
     }
 
-    await sql`
+    if (!dryRun) await sql`
       INSERT INTO encounter_cards (
         id, hero_id, set_code, set_name, set_type, name, type, text, traits,
         attack, health, scheme, base_threat, base_threat_fixed, base_threat_per_group,
         is_health_per_hero, scheme_acceleration, boost,
-        image_url, pack_code, pack_name, quantity, data_hash, synced_at
+        image_url, pack_code, pack_name, quantity, set_position, data_hash, synced_at
       ) VALUES (
         ${card.code},
         ${heroId},
@@ -595,6 +653,7 @@ async function syncCards(): Promise<void> {
         ${card.pack_code},
         ${card.pack_name},
         ${card.quantity ?? 1},
+        ${card.set_position ?? null},
         ${dataHash},
         NOW()
       )
@@ -620,6 +679,7 @@ async function syncCards(): Promise<void> {
         pack_code = EXCLUDED.pack_code,
         pack_name = EXCLUDED.pack_name,
         quantity = EXCLUDED.quantity,
+        set_position = EXCLUDED.set_position,
         data_hash = EXCLUDED.data_hash,
         synced_at = NOW()
     `;
@@ -632,11 +692,14 @@ async function syncCards(): Promise<void> {
   console.log(
     `\r✓ Encounter cards: ${encounterStats.new} new, ${encounterStats.updated} updated, ${encounterStats.skipped} skipped\n`
   );
+  } else {
+    console.log('⏭  Skipping encounter cards (--only filter)\n');
+  }
 
   console.log('Updating synced packs table...');
   for (const pack of packsToSync) {
     const packHash = packHashMap.get(pack.code)!;
-    await sql`
+    if (!dryRun) await sql`
       INSERT INTO synced_packs (code, name, position, available, known, total, data_hash, synced_at)
       VALUES (${pack.code}, ${pack.name}, ${pack.position}, ${pack.available}, ${pack.known}, ${pack.total}, ${packHash}, NOW())
       ON CONFLICT (code) DO UPDATE SET
@@ -649,7 +712,8 @@ async function syncCards(): Promise<void> {
         synced_at = NOW()
     `;
   }
-  console.log(`✓ Updated ${packsToSync.length} pack(s) in synced_packs table\n`);
+  if (dryRun) console.log(`[dry-run] Would update ${packsToSync.length} pack(s) in synced_packs table\n`);
+  else console.log(`✓ Updated ${packsToSync.length} pack(s) in synced_packs table\n`);
 
   await sql.end();
   console.log('\n✅ Sync complete!');
