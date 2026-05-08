@@ -1,0 +1,6 @@
+# Deck cards with no image in any printing (0 rows)
+# Format: table | id | hero | subtype | name | pack | set_position
+
+
+# Hero identities missing images (0)
+# Format: table | id | hero | subtype | name

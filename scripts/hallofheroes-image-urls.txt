@@ -7,3 +7,74 @@ hero_identity | 29002b | Ironheart | alter_ego | Riri Williams | https://hallofh
 hero_identity | 29002a | Ironheart | hero_2 | Ironheart | https://hallofheroeslcg.com/wp-content/uploads/2022/05/i0e.jpg
 hero_identity | 29003a | Ironheart | hero_3 | Ironheart | https://hallofheroeslcg.com/wp-content/uploads/2022/05/i0f.jpg
 hero_identity | 14001b | Quicksilver | alter_ego | Pietro Maximoff | https://hallofheroeslcg.com/wp-content/uploads/2020/12/0b.jpg
+deck_card | 58002 | Wonder Man | upgrade | Ionic Physiology | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58002.jpg
+deck_card | 58003 | Wonder Man | event | Active Altruism | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58003.jpg
+deck_card | 58004 | Wonder Man | event | Ionic Blast | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58004.jpg
+deck_card | 58005 | Wonder Man | event | Starstruck | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58005.jpg
+deck_card | 58006 | Wonder Man | resource | Energy Siphon | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58006.jpg
+deck_card | 58007 | Wonder Man | support | Wonder Fans | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58007.jpg
+deck_card | 58008 | Wonder Man | upgrade | Jet Belt | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58008.jpg
+deck_card | 58009 | Wonder Man | upgrade | Mr. Hollywood | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58009.jpg
+deck_card | 58010 | Wonder Man | upgrade | Signature Sunglasses | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58010.jpg
+deck_card | 58011 | Wonder Man | upgrade | "What Are You?" | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58011.jpg
+deck_card | 58012 | Basic | ally | Firebird | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58012.jpg
+deck_card | 58013 | Basic | ally | Hawkeye | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58013.jpg
+deck_card | 58014 | Basic | ally | Scarlet Witch | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58014.jpg
+deck_card | 58015 | Basic | ally | Sentry | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58015.jpg
+deck_card | 58016 | Basic | event | Battlefield Benevolence | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58016.jpg
+deck_card | 58018 | Basic | event | Everywhere All at Once | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58018.jpg
+deck_card | 58019 | Basic | event | Stronger Together | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58019.jpg
+deck_card | 58020 | Basic | event | Unified Strike | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58020.jpg
+deck_card | 58021 | Basic | upgrade | Heroic Conditioning | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58021.jpg
+deck_card | 58022 | Basic | ally | Swordsman | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58022.jpg
+deck_card | 58024 | Basic | support | Jarvis | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58024.jpg
+deck_card | 58030 | Basic | upgrade | Caught in the Crossfire | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58030.jpg
+deck_card | 58031 | Basic | support | Cameo | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58031.jpg
+deck_card | 58032 | Basic | upgrade | Coordinated Effort | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58032.jpg
+deck_card | 58033 | Basic | event | Disarming Defense | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58033.jpg
+deck_card | 58034 | Basic | support | Avengers Compound | https://hallofheroeslcg.com/wp-content/uploads/2026/03/58034.jpg
+deck_card | 59002 | Hercules | attachment | Defeat the Hydra | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59002.jpg
+deck_card | 59003 | Hercules | attachment | Embody Pathos | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59003.jpg
+deck_card | 59004 | Hercules | obligation | Protect Humanity | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59004.jpg
+deck_card | 59005 | Hercules | upgrade | Nemean Lion Skin | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59005.jpg
+deck_card | 59006 | Hercules | upgrade | Shield of Perseus | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59006.jpg
+deck_card | 59007 | Hercules | upgrade | Sword of Peleus | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59007.jpg
+deck_card | 59008 | Hercules | ally | Amadeus Cho | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59008.jpg
+deck_card | 59009 | Hercules | event | The Gift of Battle | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59009.jpg
+deck_card | 59010 | Hercules | event | Son of Zeus | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59010.jpg
+deck_card | 59011 | Hercules | event | Wisdom of Athena | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59011.jpg
+deck_card | 59012 | Hercules | support | Olympus | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59012.jpg
+deck_card | 59013 | Hercules | upgrade | Gauntlets of Hercules | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59013.jpg
+deck_card | 59014 | Hercules | upgrade | Golden Mace | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59014.jpg
+deck_card | 59015 | Hercules | upgrade | Herc's Helm | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59015.jpg
+deck_card | 59016 | Hercules | upgrade | Lion of Olympus | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59016.jpg
+deck_card | 59017 | Hercules | upgrade | Prince of Power | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59017.jpg
+deck_card | 59018 | Basic | ally | Deathcry | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59018.jpg
+deck_card | 59019 | Basic | ally | Namora | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59019.jpg
+deck_card | 59020 | Basic | ally | Thor | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59020.jpg
+deck_card | 59023 | Basic | support | Recruitment Drive | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59023.jpg
+deck_card | 59024 | Basic | upgrade | "Avenge Me!" | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59024.jpg
+deck_card | 59025 | Basic | ally | Gilgamesh | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59025.jpg
+deck_card | 59026 | Basic | event | Ancient Rivalry | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59026.jpg
+deck_card | 59028 | Basic | player_side_scheme | Evaluate Threat | https://hallofheroeslcg.com/wp-content/uploads/2026/03/59028.jpg
+deck_card | 47007a | Jubilee | event | Firecracker | https://hallofheroeslcg.com/wp-content/uploads/2024/07/47007a.jpg
+deck_card | 47007b | Jubilee | event | Firecracker | https://hallofheroeslcg.com/wp-content/uploads/2024/07/47007b.jpg
+deck_card | 47007c | Jubilee | event | Firecracker | https://hallofheroeslcg.com/wp-content/uploads/2024/07/47007c.jpg
+deck_card | 47008a | Jubilee | event | Flash of Light | https://hallofheroeslcg.com/wp-content/uploads/2024/07/47008a.jpg
+deck_card | 47008b | Jubilee | event | Flash of Light | https://hallofheroeslcg.com/wp-content/uploads/2024/07/47008b.jpg
+deck_card | 47008c | Jubilee | event | Flash of Light | https://hallofheroeslcg.com/wp-content/uploads/2024/07/47008c.jpg
+deck_card | 47010a | Jubilee | resource | Plasmoid Energy | https://hallofheroeslcg.com/wp-content/uploads/2024/07/47010a.jpg
+deck_card | 47010b | Jubilee | resource | Plasmoid Energy | https://hallofheroeslcg.com/wp-content/uploads/2024/07/47010b.jpg
+deck_card | 47010c | Jubilee | resource | Plasmoid Energy | https://hallofheroeslcg.com/wp-content/uploads/2024/07/47010c.jpg
+deck_card | 50035a | Nick Fury | upgrade | Assault | https://hallofheroeslcg.com/wp-content/uploads/2025/03/50035a.jpg
+deck_card | 50035b | Nick Fury | upgrade | Stealth | https://hallofheroeslcg.com/wp-content/uploads/2025/03/50035b.jpg
+deck_card | 41002a | Psylocke | upgrade | Psi-Knife | https://hallofheroeslcg.com/wp-content/uploads/2023/10/41002a.jpg
+deck_card | 41002b | Psylocke | upgrade | Psi-Katana | https://hallofheroeslcg.com/wp-content/uploads/2023/10/41002b.jpg
+deck_card | 57032 | Basic | event | You're Out of Order! | https://hallofheroeslcg.com/wp-content/uploads/2026/03/57032.jpg
+deck_card | 57033 | Basic | event | She-Hulk Smash | https://hallofheroeslcg.com/wp-content/uploads/2026/03/57033.jpg
+deck_card | 57034 | Basic | upgrade | Make Me Angry | https://hallofheroeslcg.com/wp-content/uploads/2026/03/57034.jpg
+deck_card | 57035 | Basic | resource | Legal Counsel | https://hallofheroeslcg.com/wp-content/uploads/2026/03/57035.jpg
+deck_card | 57074 | Basic | event | Calculated Risk | https://hallofheroeslcg.com/wp-content/uploads/2026/03/57074.jpg
+deck_card | 57075 | Basic | event | Synthezoid Strike | https://hallofheroeslcg.com/wp-content/uploads/2026/03/57075.jpg
+deck_card | 57076 | Basic | event | Phased Out | https://hallofheroeslcg.com/wp-content/uploads/2026/03/57076.jpg
+deck_card | 57077 | Basic | resource | Android Assistance | https://hallofheroeslcg.com/wp-content/uploads/2026/03/57077.jpg
