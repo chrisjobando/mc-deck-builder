@@ -1,6 +1,12 @@
 import 'dotenv/config';
 import crypto from 'node:crypto';
+import { readFileSync, existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import postgres from 'postgres';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const MARVELCDB_BASE = 'https://marvelcdb.com';
 
@@ -717,6 +723,32 @@ async function syncCards(): Promise<void> {
 
   await sql.end();
   console.log('\n✅ Sync complete!');
+
+  // Apply Hall of Heroes image URL overrides
+  const overridesPath = join(__dirname, 'hallofheroes-image-urls.txt');
+  if (existsSync(overridesPath)) {
+    const overrideSql = postgres(databaseUrl, { prepare: false, max: 1 });
+    const lines = readFileSync(overridesPath, 'utf-8').split('\n');
+    let overrideCount = 0;
+    for (const line of lines) {
+      if (!line || line.startsWith('#')) continue;
+      const parts = line.split(' | ');
+      if (parts.length < 6) continue;
+      const [table, id, , , , imageUrl] = parts;
+      const url = imageUrl?.trim();
+      if (!url) continue;
+      if (table === 'hero_identity') {
+        await overrideSql`UPDATE hero_identities SET image_url = ${url} WHERE id = ${id}`;
+      } else if (table === 'deck_card') {
+        await overrideSql`UPDATE deck_cards SET image_url = ${url} WHERE id = ${id}`;
+      } else if (table === 'encounter_card') {
+        await overrideSql`UPDATE encounter_cards SET image_url = ${url} WHERE id = ${id}`;
+      }
+      overrideCount++;
+    }
+    await overrideSql.end();
+    console.log(`✓ Applied ${overrideCount} Hall of Heroes image URL override(s)`);
+  }
 }
 
 syncCards().catch((err: Error) => {
