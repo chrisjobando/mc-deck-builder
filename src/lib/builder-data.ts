@@ -34,14 +34,20 @@ export async function loadBuilderData() {
     encounterByHero.get(c.heroId)!.push(c);
   }
 
-  // Deduplicate cards by name + text + heroId (reprints collapse to one entry)
-  // Prefer the printing that has an image over one that doesn't
+  // Deduplicate non-hero cards by name + text + resources (reprints collapse to one entry).
+  // Hero-specific cards (heroId !== null) are never merged — each set entry is kept distinct
+  // so that set_position ordering is preserved.
+  const heroSetCards: typeof rawCards = [];
   const cardsByKey = new Map<string, typeof rawCards[0]>();
   const cardPacksMap = new Map<string, Set<string>>();
   const cardPackCodesMap = new Map<string, Set<string>>();
   const cardAllIdsMap = new Map<string, Set<string>>(); // Track ALL card IDs for each deduped entry
   for (const card of rawCards) {
-    const key = `${card.name}|||${card.text ?? ''}|||${card.heroId ?? ''}|||${card.resourceEnergy ?? 0}|${card.resourceMental ?? 0}|${card.resourcePhysical ?? 0}|${card.resourceWild ?? 0}`;
+    if (card.heroId) {
+      heroSetCards.push(card);
+      continue;
+    }
+    const key = `${card.name}|||${card.text ?? ''}|||${card.resourceEnergy ?? 0}|${card.resourceMental ?? 0}|${card.resourcePhysical ?? 0}|${card.resourceWild ?? 0}`;
     const existing = cardsByKey.get(key);
     if (!existing || (!existing.imageUrl && card.imageUrl)) {
       cardsByKey.set(key, card);
@@ -95,36 +101,43 @@ export async function loadBuilderData() {
       })),
     }));
 
-  const cardPool = Array.from(cardsByKey.entries()).map(([key, c]) => ({
-    id: c.id,
-    name: c.name,
-    type: c.type,
-    aspect: c.aspect,
-    cost: c.cost,
-    attack: c.attack,
-    attackConsequential: c.attackConsequential,
-    thwart: c.thwart,
-    thwartConsequential: c.thwartConsequential,
-    health: c.health,
-    traits: c.traits,
-    text: c.text,
-    imageUrl: c.imageUrl,
-    isPermanent: c.isPermanent,
-    isUnique: c.isUnique,
-    deckLimit: c.deckLimit,
-    packCode: c.packCode,
-    packName: c.packName,
-    heroId: c.heroId,
-    resourceEnergy: c.resourceEnergy,
-    resourceMental: c.resourceMental,
-    resourcePhysical: c.resourcePhysical,
-    resourceWild: c.resourceWild,
-    quantity: c.quantity,
-    packs: [...(cardPacksMap.get(key) ?? (c.packName ? [c.packName] : []))].sort(),
-    packCodes: [...(cardPackCodesMap.get(key) ?? (c.packCode ? [c.packCode] : []))].sort(),
-    // All MarvelCDB card IDs that map to this deduplicated entry (for import matching)
-    allIds: [...(cardAllIdsMap.get(key) ?? new Set([c.id]))],
-  }));
+  function shapeCard(c: typeof rawCards[0], key?: string) {
+    return {
+      id: c.id,
+      name: c.name,
+      type: c.type,
+      aspect: c.aspect,
+      cost: c.cost,
+      attack: c.attack,
+      attackConsequential: c.attackConsequential,
+      thwart: c.thwart,
+      thwartConsequential: c.thwartConsequential,
+      health: c.health,
+      traits: c.traits,
+      text: c.text,
+      imageUrl: c.imageUrl,
+      isPermanent: c.isPermanent,
+      isUnique: c.isUnique,
+      deckLimit: c.deckLimit,
+      packCode: c.packCode,
+      packName: c.packName,
+      heroId: c.heroId,
+      resourceEnergy: c.resourceEnergy,
+      resourceMental: c.resourceMental,
+      resourcePhysical: c.resourcePhysical,
+      resourceWild: c.resourceWild,
+      quantity: c.quantity,
+      setPosition: c.setPosition,
+      packs: key ? [...(cardPacksMap.get(key) ?? (c.packName ? [c.packName] : []))].sort() : (c.packName ? [c.packName] : []),
+      packCodes: key ? [...(cardPackCodesMap.get(key) ?? (c.packCode ? [c.packCode] : []))].sort() : (c.packCode ? [c.packCode] : []),
+      allIds: key ? [...(cardAllIdsMap.get(key) ?? new Set([c.id]))] : [c.id],
+    };
+  }
+
+  const cardPool = [
+    ...Array.from(cardsByKey.entries()).map(([key, c]) => shapeCard(c, key)),
+    ...heroSetCards.map(c => shapeCard(c)),
+  ];
 
   return { heroOptions, cardPool };
 }

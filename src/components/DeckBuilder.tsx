@@ -82,6 +82,7 @@ interface CardPoolItem {
   resourcePhysical: number | null;
   resourceWild: number | null;
   quantity: number;
+  setPosition: number | null;
   packs: string[];
   packCodes: string[];
   allIds?: string[]; // All MarvelCDB card IDs that map to this card (for import)
@@ -1067,6 +1068,7 @@ export default function DeckBuilder() {
     if (!aInDeck && bInDeck) return 1;
     if (a.heroId && !b.heroId) return -1;
     if (!a.heroId && b.heroId) return 1;
+    if (a.heroId && b.heroId) return (a.setPosition ?? Infinity) - (b.setPosition ?? Infinity);
     return a.name.localeCompare(b.name);
   });
 

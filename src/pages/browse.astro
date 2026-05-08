@@ -30,11 +30,16 @@ const myCollectionCodes = [...ALWAYS_OWNED_CODES, ...ownedPackCodes];
 const myCollectionSet = new Set(myCollectionCodes);
 const isLoggedIn = user != null;
 
-// Consolidate deck cards that appear in multiple packs (group by name + text)
+// Consolidate non-hero deck cards that appear in multiple packs (group by name + text).
+// Hero-specific cards (heroId !== null) are kept as distinct entries to preserve set order.
+const heroSetCardsList: DeckCard[] = [];
 const cardsByKey = new Map<string, DeckCard[]>();
 for (const card of cards) {
-  // Hero-specific cards with the same name/text but different owners must stay separate
-  const key = `${card.name}|||${card.text || ''}|||${card.heroId || ''}|||${card.resourceEnergy ?? 0}|${card.resourceMental ?? 0}|${card.resourcePhysical ?? 0}|${card.resourceWild ?? 0}`;
+  if (card.heroId) {
+    heroSetCardsList.push(card);
+    continue;
+  }
+  const key = `${card.name}|||${card.text || ''}|||${card.resourceEnergy ?? 0}|${card.resourceMental ?? 0}|${card.resourcePhysical ?? 0}|${card.resourceWild ?? 0}`;
   if (!cardsByKey.has(key)) {
     cardsByKey.set(key, []);
   }
@@ -88,7 +93,42 @@ const allCards = [
     };
   }),
 
-  // Consolidated deck cards - one entry per unique card with multiple packs
+  // Hero set cards — kept as individual entries (not merged) to preserve set order
+  ...heroSetCardsList.map((c: DeckCard) => ({
+    id: c.id,
+    name: c.name,
+    imageUrl: c.imageUrl || null,
+    packName: c.packName,
+    packCode: c.packCode,
+    packs: c.packName ? [{ name: c.packName, code: c.packCode }] : [],
+    artVariants: c.imageUrl ? [{ imageUrl: c.imageUrl, packName: c.packName, packCode: c.packCode }] : [],
+    type: c.type,
+    aspect: c.aspect,
+    quantity: c.quantity,
+    health: c.health,
+    isMultiAspect: null as boolean | null,
+    identities: [] as any[],
+    cost: c.cost,
+    attack: c.attack,
+    thwart: c.thwart,
+    attackConsequential: c.attackConsequential,
+    thwartConsequential: c.thwartConsequential,
+    traits: c.traits,
+    text: c.text,
+    deckLimit: c.deckLimit,
+    isPermanent: c.isPermanent,
+    isUnique: c.isUnique,
+    heroId: c.heroId,
+    heroName: heroNameById.get(c.heroId!) || null,
+    setType: (c as any).setType as string | null,
+    resourceEnergy: c.resourceEnergy,
+    resourceMental: c.resourceMental,
+    resourcePhysical: c.resourcePhysical,
+    resourceWild: c.resourceWild,
+    setPosition: (c as any).setPosition as number | null,
+  })),
+
+  // Consolidated non-hero deck cards - one entry per unique card with multiple packs
   ...Array.from(cardsByKey.values()).map((duplicates: DeckCard[]) => {
     const c = duplicates[0]; // Use first as representative
     const packs = duplicates.map(d => ({ name: d.packName, code: d.packCode })).filter(p => p.name);
@@ -140,6 +180,7 @@ const allCards = [
       resourceMental: c.resourceMental,
       resourcePhysical: c.resourcePhysical,
       resourceWild: c.resourceWild,
+      setPosition: c.setPosition,
     };
   })
 ];
@@ -566,6 +607,8 @@ const ASPECT_FILTERS = [
   let currentCardId: string | null = null;
   let parentHeroId: string | null = null;
   let parentPage: 'hero-cards' | null = null;
+  let parentSetTypeFilter: 'hero' | 'hero_special' = 'hero';
+  let parentSetTypeName: string | undefined = undefined;
 
   function renderHeroModal(card: any, identityIndex: number) {
     if (!modalContent) return;
@@ -760,7 +803,7 @@ const ASPECT_FILTERS = [
 
     const heroSpecificCards = allCardsData
       .filter((c: any) => c.heroId === heroCard.id && (setTypeFilter === 'hero_special' ? (setTypeName ? c.setType === setTypeName : (c.setType !== null && c.setType !== 'hero')) : c.setType === 'hero'))
-      .sort((a: any, b: any) => (a.isPermanent ? 0 : 1) - (b.isPermanent ? 0 : 1));
+      .sort((a: any, b: any) => (a.setPosition ?? Infinity) - (b.setPosition ?? Infinity));
     const totalCount = heroSpecificCards.reduce((sum: number, c: any) => sum + (c.quantity || 1), 0);
 
     const sectionTitle = setTypeFilter === 'hero_special'
@@ -806,6 +849,8 @@ const ASPECT_FILTERS = [
         if (cardId) {
           parentHeroId = heroCard.id;
           parentPage = 'hero-cards';
+          parentSetTypeFilter = setTypeFilter;
+          parentSetTypeName = setTypeName;
           openModal(cardId);
         }
       });
@@ -984,10 +1029,14 @@ const ASPECT_FILTERS = [
           if (heroCard) {
             currentCardId = parentHeroId;
             const fromPage = parentPage;
+            const fromSetTypeFilter = parentSetTypeFilter;
+            const fromSetTypeName = parentSetTypeName;
             parentHeroId = null;
             parentPage = null;
+            parentSetTypeFilter = 'hero';
+            parentSetTypeName = undefined;
             if (fromPage === 'hero-cards') {
-              renderHeroCardsPage(heroCard);
+              renderHeroCardsPage(heroCard, fromSetTypeFilter, fromSetTypeName);
             } else {
               renderHeroModal(heroCard, 0);
             }
