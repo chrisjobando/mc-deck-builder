@@ -3,6 +3,8 @@ import vercel from '@astrojs/vercel';
 import tailwindcss from '@tailwindcss/vite';
 import auth from 'auth-astro';
 import { defineConfig } from 'astro/config';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 export default defineConfig({
   integrations: [react(), auth()],
@@ -11,5 +13,10 @@ export default defineConfig({
   vite: {
     // @ts-ignore - Vite version mismatch between Astro and Tailwind
     plugins: [tailwindcss()],
+    resolve: {
+      alias: {
+        '@': path.resolve(fileURLToPath(import.meta.url), '../src'),
+      },
+    },
   },
 });
