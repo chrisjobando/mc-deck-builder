@@ -95,7 +95,7 @@ const [encounterSets, sessions] = await Promise.all([
           />
           <input type="hidden" name="villainSetCode" id="villain-code" />
           <div id="villain-dropdown" class="relative hidden">
-            <ul class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-white/10 bg-[var(--color-bg)] shadow-xl"></ul>
+            <ul class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-white/10 bg-card shadow-xl"></ul>
           </div>
           <div id="villain-selected" class="hidden mt-2 flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm">
             <span id="villain-selected-name" class="font-medium"></span>
@@ -110,7 +110,7 @@ const [encounterSets, sessions] = await Promise.all([
               class="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]"
             />
             <div id="modular-dropdown" class="relative hidden">
-              <ul class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-white/10 bg-[var(--color-bg)] shadow-xl"></ul>
+              <ul class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-white/10 bg-card shadow-xl"></ul>
             </div>
             <div id="modular-pills" class="mt-2 flex flex-wrap gap-1.5"></div>
             <input type="hidden" name="modularSetCodes" id="modular-codes" value="[]" />

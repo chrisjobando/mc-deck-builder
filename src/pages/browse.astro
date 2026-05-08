@@ -34,7 +34,7 @@ const isLoggedIn = user != null;
 const cardsByKey = new Map<string, DeckCard[]>();
 for (const card of cards) {
   // Hero-specific cards with the same name/text but different owners must stay separate
-  const key = `${card.name}|||${card.text || ''}|||${card.heroId || ''}`;
+  const key = `${card.name}|||${card.text || ''}|||${card.heroId || ''}|||${card.resourceEnergy ?? 0}|${card.resourceMental ?? 0}|${card.resourcePhysical ?? 0}|${card.resourceWild ?? 0}`;
   if (!cardsByKey.has(key)) {
     cardsByKey.set(key, []);
   }
@@ -769,7 +769,7 @@ const ASPECT_FILTERS = [
 
     modalContent.innerHTML = `
       <div>
-        <button id="back-to-hero-btn" class="mb-6 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-sm font-medium inline-flex items-center gap-2 transition-colors">
+        <button id="back-to-hero-btn" class="mb-6 w-fit px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-sm font-medium inline-flex items-center gap-2 transition-colors">
           <span>←</span> Back to ${heroCard.name}
         </button>
         <h2 class="text-2xl font-bold mb-1">${heroCard.name}</h2>
@@ -843,7 +843,7 @@ const ASPECT_FILTERS = [
     // Check if we came from a hero modal
     const parentHero = parentHeroId ? allCardsData.find((c: any) => c.id === parentHeroId) : null;
     const backToHeroHtml = parentHero ? `
-      <button id="back-to-hero-btn" class="mb-4 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-sm font-medium inline-flex items-center gap-2 transition-colors">
+      <button id="back-to-hero-btn" class="mb-4 w-fit px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-sm font-medium inline-flex items-center gap-2 transition-colors">
         <span>←</span> Back to ${parentHero.name}'s cards
       </button>
     ` : '';
