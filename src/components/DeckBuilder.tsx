@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ASPECT_BG, ASPECT_DOT, ASPECT_RING, ASPECT_TEXT_COLOR, COST_BUCKETS, formatType, TYPE_COLOR } from '../lib/cardFormatting';
-import { heroSlug, WARLOCK_ID } from '../lib/utils';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { AspectBadge, AspectButton, CardTypeBadge, DeckProgress } from '@/components/ui/marvel';
+import { ASPECT_TEXT_COLOR, COST_BUCKETS, formatType, TYPE_COLOR } from '@/lib/cardFormatting';
+import { heroSlug, WARLOCK_ID } from '@/lib/utils';
 import CardModal from './CardModal';
 
 // Markdown + card text formatting for AI responses
@@ -113,14 +117,6 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 const ASPECTS = ['Aggression', 'Justice', 'Leadership', 'Protection', 'Pool'] as const;
 
 
-const TYPE_BADGE: Record<string, string> = {
-  ally: 'bg-blue-900/80 text-blue-200',
-  event: 'bg-purple-900/80 text-purple-200',
-  support: 'bg-yellow-900/80 text-yellow-200',
-  upgrade: 'bg-emerald-900/80 text-emerald-200',
-  resource: 'bg-gray-800 text-gray-300',
-  player_side_scheme: 'bg-orange-900/80 text-orange-200',
-};
 
 
 
@@ -129,6 +125,21 @@ const ALL_ASPECTS = ['Aggression', 'Justice', 'Leadership', 'Protection'];
 
 function serializeDeckCards(deck: Map<string, { quantity: number }>) {
   return [...deck.entries()].map(([id, e]) => ({ id, qty: e.quantity })).sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function sortedIdentities(hero: HeroOption): HeroIdentity[] {
+  return [...hero.identities].sort((a, b) => {
+    if (a.identityType === 'alter_ego') return 1;
+    if (b.identityType === 'alter_ego') return -1;
+    return a.identityType.localeCompare(b.identityType);
+  });
+}
+
+function identityLabel(identityType: string): string {
+  if (identityType === 'alter_ego') return 'Alter Ego';
+  if (identityType === 'hero') return 'Hero';
+  if (identityType.startsWith('hero_')) return `Hero ${identityType.replace('hero_', '')}`;
+  return identityType;
 }
 
 function getHeroIdentity(hero: HeroOption): HeroIdentity {
@@ -270,7 +281,7 @@ export default function DeckBuilder() {
   const [deckName, setDeckName] = useState('');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [modalCard, setModalCard] = useState<CardPoolItem | null>(null);
-  const [heroSide, setHeroSide] = useState<'hero' | 'alter_ego'>('hero');
+  const [heroIdentityIndex, setHeroIdentityIndex] = useState(0);
   const [editDeckId, setEditDeckId] = useState<string | null>(null);
   const [editOriginalSnapshot, setEditOriginalSnapshot] = useState<string | null>(null);
   const [ownedPacks, setOwnedPacks] = useState<Set<string>>(new Set());
@@ -341,6 +352,7 @@ export default function DeckBuilder() {
       const hero = heroesData.find(h => h.id === initialHeroId);
       if (hero) {
         setSelectedHero(hero);
+        setHeroIdentityIndex(0);
 
         const initialDeck = new Map<string, DeckEntry>();
         const savedCardsJson = initialEl?.dataset.editDeckCards;
@@ -912,14 +924,13 @@ export default function DeckBuilder() {
     return (
       <div>
         <h1 className="mb-1 text-3xl font-bold">Build a Deck</h1>
-        <p className="mb-6 text-[var(--color-text-muted)]">Step 1 of 3 — Choose your hero</p>
+        <p className="mb-6 text-muted-foreground">Step 1 of 3 — Choose your hero</p>
         <div className="mb-6 flex items-center gap-3">
-          <input
-            type="text"
+          <Input
             placeholder="Search heroes..."
             value={heroSearch}
             onChange={e => setHeroSearch(e.target.value)}
-            className="w-full max-w-sm rounded border border-white/10 bg-[var(--color-surface)] px-4 py-2 text-sm outline-none focus:ring-1 focus:ring-[var(--color-secondary)]"
+            className="w-full max-w-sm"
           />
           <OwnedOnlyButton active={collectionOnly} onClick={() => setCollectionOnly(v => !v)} />
         </div>
@@ -931,7 +942,7 @@ export default function DeckBuilder() {
               <button
                 key={hero.id}
                 onClick={() => selectHero(hero)}
-                className="group flex flex-col overflow-hidden rounded-lg border border-white/10 bg-[var(--color-surface)] transition hover:border-[var(--color-primary)] hover:shadow-lg"
+                className="group flex flex-col overflow-hidden rounded-lg border border-white/10 bg-card transition hover:border-primary hover:shadow-lg"
               >
                 <div className="relative aspect-[63/88] w-full overflow-hidden bg-black/30">
                   {primary?.imageUrl ? (
@@ -941,7 +952,7 @@ export default function DeckBuilder() {
                       className="h-full w-full object-cover transition group-hover:scale-105"
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-xs text-[var(--color-text-muted)]">
+                    <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
                       No Image
                     </div>
                   )}
@@ -949,7 +960,7 @@ export default function DeckBuilder() {
                 <div className="p-2">
                   <p className="truncate text-xs font-semibold">{hero.name}</p>
                   {alterEgo && (
-                    <p className="truncate text-[10px] text-[var(--color-text-muted)]">{alterEgo.name}</p>
+                    <p className="truncate text-[10px] text-muted-foreground">{alterEgo.name}</p>
                   )}
                 </div>
               </button>
@@ -969,21 +980,18 @@ export default function DeckBuilder() {
     const maxRecScore = aspectRecs ? Math.max(...Object.values(aspectRecs).map(r => r.score)) : 0;
     return (
       <div className="mx-auto max-w-lg">
-        <button
-          onClick={() => { window.location.href = '/builder'; }}
-          className="mb-6 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-        >
+        <Button variant="ghost" size="sm" onClick={() => { window.location.href = '/builder'; }} className="mb-6 -ml-3">
           ← Back
-        </button>
+        </Button>
         <h1 className="mb-1 text-3xl font-bold">Build a Deck</h1>
         <div className="mb-1 flex items-center justify-between">
-          <p className="text-[var(--color-text-muted)]">
+          <p className="text-muted-foreground">
             Step 2 of 3 — Choose your aspect{isMultiAspect ? 's' : ''}
           </p>
           <OwnedOnlyButton active={collectionOnly} onClick={() => setCollectionOnly(v => !v)} />
         </div>
-        <p className="mb-6 text-sm text-[var(--color-text-muted)]">
-          Building with <strong className="text-[var(--color-text)]">{selectedHero?.name}</strong>.{' '}
+        <p className="mb-6 text-sm text-muted-foreground">
+          Building with <strong className="text-foreground">{selectedHero?.name}</strong>.{' '}
           {isMultiAspect
             ? 'Pick 2 aspects — Basic is always included.'
             : 'Pick 1 aspect — Basic is always included.'}
@@ -992,34 +1000,23 @@ export default function DeckBuilder() {
           {visibleAspects.map(aspect => {
             const isSelected = selectedAspects.includes(aspect);
             const rec = aspectRecs?.[aspect];
-            const isRecommended = rec && rec.score >= maxRecScore && maxRecScore > 0;
+            const isRecommended = !!(rec && rec.score >= maxRecScore && maxRecScore > 0);
             return (
-              <button
+              <AspectButton
                 key={aspect}
+                aspect={aspect}
+                isSelected={isSelected}
+                isRecommended={isRecommended}
+                recommendationReason={rec?.reason}
                 onClick={() => toggleAspect(aspect)}
-                className={`relative rounded-lg px-4 pb-4 pt-6 text-center font-semibold transition ${ASPECT_BG[aspect]} ${
-                  isSelected
-                    ? `scale-105 ring-2 ${ASPECT_RING[aspect]}`
-                    : 'opacity-60 hover:opacity-90'
-                }`}
-              >
-                {isRecommended && (
-                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-bold text-black">
-                    ★ Recommended
-                  </span>
-                )}
-                {aspect}
-                {rec && (
-                  <span className="mt-1 block text-[10px] font-normal opacity-80">{rec.reason}</span>
-                )}
-              </button>
+              />
             );
           })}
         </div>
-        <p className="mt-4 text-sm text-[var(--color-text-muted)]">
+        <p className="mt-4 text-sm text-muted-foreground">
           Selected: Basic{selectedAspects.length > 0 ? `, ${selectedAspects.join(', ')}` : ''}
         </p>
-        <button
+        <Button
           onClick={() => {
             if (!selectedHero) return;
             const slug = heroSlug(selectedHero.name, selectedHero.id);
@@ -1027,10 +1024,10 @@ export default function DeckBuilder() {
             window.location.href = `/builder/${slug}/${aspectsParam}`;
           }}
           disabled={selectedAspects.length !== (isMultiAspect ? 2 : 1)}
-          className="mt-6 w-full rounded-lg bg-[var(--color-primary)] px-6 py-3 font-semibold transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="mt-6 w-full"
         >
           Continue to Deck Builder
-        </button>
+        </Button>
       </div>
     );
   }
@@ -1059,6 +1056,9 @@ export default function DeckBuilder() {
   const curveSummary = getCurveSummary(costBreakdown);
   const heroSummary = selectedHero ? getHeroStrengthsWeaknesses(selectedHero) : null;
   const heroIdentity = selectedHero ? getHeroIdentity(selectedHero) : null;
+  const shownIdentityForStats = selectedHero
+    ? sortedIdentities(selectedHero)[Math.min(heroIdentityIndex, selectedHero.identities.length - 1)]
+    : null;
 
   const sortedPool = [...filteredPool].sort((a, b) => {
     const aInDeck = (deck.get(a.id)?.quantity ?? 0) > 0;
@@ -1077,7 +1077,7 @@ export default function DeckBuilder() {
         <div className="mb-4">
           <a 
             href={`/sessions/${sessionContext.code}`} 
-            className="text-sm text-[var(--color-text-muted)] hover:text-white"
+            className="text-sm text-muted-foreground hover:text-white"
           >
             ← Back to {sessionContext.name}
           </a>
@@ -1089,40 +1089,36 @@ export default function DeckBuilder() {
         <div>
           <h1 className="text-2xl font-bold">{selectedHero?.name}</h1>
           <div className="mt-1 flex flex-wrap gap-1.5">
-            <span className="rounded bg-gray-700 px-2 py-0.5 text-xs">Basic</span>
+            <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">Basic</span>
             {selectedAspects.map(a => (
-              <span key={a} className={`rounded px-2 py-0.5 text-xs text-white ${ASPECT_BG[a]}`}>
-                {a}
-              </span>
+              <AspectBadge key={a} aspect={a} className="rounded text-xs" />
             ))}
           </div>
         </div>
         {!sessionContext && (
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setImportDialogOpen(true)}
-              className="rounded border border-white/10 px-3 py-1.5 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-[var(--color-text)]"
-            >
+            <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
               Import from MarvelCDB
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 window.location.href = selectedHero?.id === WARLOCK_ID
                   ? '/builder'
                   : `/builder/${heroSlug(selectedHero!.name, selectedHero!.id)}`;
               }}
-              className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
             >
               {selectedHero?.id === WARLOCK_ID ? '← Change Hero' : '← Change Hero/Aspect'}
-            </button>
+            </Button>
           </div>
         )}
       </div>
 
       {/* Teammates Panel (Session Mode) */}
       {sessionContext && sessionContext.teammates.length > 0 && (
-        <div className="mb-4 rounded-lg border border-white/10 bg-[var(--color-surface)] p-4">
-          <h3 className="mb-3 text-sm font-semibold text-[var(--color-text-muted)]">
+        <div className="mb-4 rounded-lg border border-white/10 bg-card p-4">
+          <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
             Teammates
           </h3>
           <div className="flex flex-wrap gap-3">
@@ -1139,12 +1135,12 @@ export default function DeckBuilder() {
                   <div className="flex items-center gap-1.5">
                     <span className="truncate text-sm font-medium">{t.userName}</span>
                     {t.aspects.map(a => (
-                      <span key={a} className={`rounded px-1 py-0.5 text-[10px] text-white ${ASPECT_BG[a] ?? 'bg-gray-700'}`}>
+                      <span key={a} className="rounded px-1 py-0.5 text-[10px] text-white" style={{ backgroundColor: `var(--color-aspect-${a.toLowerCase()})` }}>
                         {a[0]}
                       </span>
                     ))}
                   </div>
-                  <div className="truncate text-xs text-[var(--color-text-muted)]">
+                  <div className="truncate text-xs text-muted-foreground">
                     {t.heroName}
                     {t.deckName && <span className="ml-1 text-green-400">✓</span>}
                   </div>
@@ -1153,23 +1149,23 @@ export default function DeckBuilder() {
             ))}
           </div>
           {sessionContext.collectionMode !== 'single' && (
-            <p className="mt-2 text-[10px] text-[var(--color-text-muted)]">
+            <p className="mt-2 text-[10px] text-muted-foreground">
               Collection: {sessionContext.collectionMode === 'combined' ? 'Union of all players' : 'Summed duplicates'}
             </p>
           )}
         </div>
       )}
 
-      <div className="mb-3 flex rounded-lg border border-white/10 lg:hidden">
+      <div className="mb-3 flex rounded-lg border border-border lg:hidden">
         <button
           onClick={() => setMobileTab('cards')}
-          className={`flex-1 rounded-l-lg py-3 text-sm font-medium transition ${mobileTab === 'cards' ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-surface)]'}`}
+          className={`flex-1 rounded-l-lg py-3 text-sm font-medium transition ${mobileTab === 'cards' ? 'bg-primary' : 'bg-card'}`}
         >
           Cards
         </button>
         <button
           onClick={() => setMobileTab('deck')}
-          className={`flex-1 rounded-r-lg py-3 text-sm font-medium transition ${mobileTab === 'deck' ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-surface)]'}`}
+          className={`flex-1 rounded-r-lg py-3 text-sm font-medium transition ${mobileTab === 'deck' ? 'bg-primary' : 'bg-card'}`}
         >
           Deck ({totalDeckSize} / 40)
         </button>
@@ -1179,12 +1175,11 @@ export default function DeckBuilder() {
         {/* ── Left: Card Pool ── */}
         <div className={`${mobileTab === 'deck' ? 'hidden lg:flex' : 'flex'} min-w-0 flex-col gap-3`} style={{ flex: '0 1 56rem' }}>
           <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="text"
+            <Input
               placeholder="Search cards..."
               value={cardSearch}
               onChange={e => setCardSearch(e.target.value)}
-              className="flex-1 rounded border border-white/10 bg-[var(--color-surface)] px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-[var(--color-secondary)]"
+              className="flex-1"
             />
             <OwnedOnlyButton active={collectionOnly} onClick={() => setCollectionOnly(v => !v)} />
           </div>
@@ -1196,7 +1191,7 @@ export default function DeckBuilder() {
                   onClick={() => setTypeFilter(f.value)}
                   className={`rounded px-2.5 py-1.5 text-xs font-medium transition ${
                     typeFilter === f.value
-                      ? 'bg-[var(--color-primary)] text-white'
+                      ? 'bg-primary text-white'
                       : 'bg-white/5 hover:bg-white/10'
                   }`}
                 >
@@ -1204,7 +1199,7 @@ export default function DeckBuilder() {
                 </button>
               ))}
             </div>
-            <span className="text-xs text-[var(--color-text-muted)]">
+            <span className="text-xs text-muted-foreground">
               {sortedPool.length} card{sortedPool.length !== 1 ? 's' : ''}
             </span>
           </div>
@@ -1212,7 +1207,7 @@ export default function DeckBuilder() {
           <div className="overflow-hidden rounded border border-white/10">
             <div ref={cardPoolRef} className="max-h-[calc(100vh-300px)] overflow-y-auto pr-1">
               {sortedPool.length === 0 ? (
-                <p className="p-4 text-center text-sm text-[var(--color-text-muted)]">
+                <p className="p-4 text-center text-sm text-muted-foreground">
                   No cards found
                 </p>
               ) : (
@@ -1223,7 +1218,7 @@ export default function DeckBuilder() {
                     <col className="w-12" />
                     <col className="w-20" />
                   </colgroup>
-                  <thead className="sticky top-0 bg-[var(--color-surface)] text-xs text-[var(--color-text-muted)]">
+                  <thead className="sticky top-0 bg-card text-xs text-muted-foreground">
                     <tr>
                       <th className="px-3 py-2 text-left">Card</th>
                       <th className="px-2 py-2 text-center">Cost</th>
@@ -1241,12 +1236,13 @@ export default function DeckBuilder() {
                       const claimedBy = isClaimedByTeammate(card);
                       const isBlocked = claimedBy && claimedBy.length > 0 && inDeck === 0;
                       return (
-                        <tr key={card.id} className={`border-t border-white/5 ${inDeck > 0 ? 'bg-[var(--color-primary)]/10 hover:bg-[var(--color-primary)]/15' : isBlocked ? 'bg-red-500/5' : 'hover:bg-white/[0.03]'}`}>
-                          <td className={`py-2 ${inDeck > 0 ? 'border-l-2 border-[var(--color-primary)] pl-[10px] pr-3' : 'px-3'}`}>
+                        <tr key={card.id} className={`border-t border-white/5 ${inDeck > 0 ? 'bg-primary/10 hover:bg-primary/15' : isBlocked ? 'bg-red-500/5' : 'hover:bg-white/[0.03]'}`}>
+                          <td className={`py-2 ${inDeck > 0 ? 'border-l-2 border-primary pl-[10px] pr-3' : 'px-3'}`}>
                             <div className="flex items-center gap-2">
                               {card.aspect && (
                                 <span
-                                  className={`inline-block h-2 w-2 flex-shrink-0 rounded-full ${ASPECT_DOT[card.aspect] ?? 'bg-gray-500'}`}
+                                  className="inline-block h-2 w-2 flex-shrink-0 rounded-full"
+                                  style={{ backgroundColor: `var(--color-aspect-dot-${card.aspect.toLowerCase()})` }}
                                 />
                               )}
                               <div>
@@ -1259,11 +1255,7 @@ export default function DeckBuilder() {
                                 {card.isUnique && (
                                   <span className="marvel-glyph ml-1 text-xs text-yellow-400">S</span>
                                 )}
-                                <span
-                                  className={`ml-1.5 rounded px-1 py-0.5 text-[10px] ${TYPE_BADGE[card.type] ?? 'bg-gray-800 text-gray-300'}`}
-                                >
-                                  {formatType(card.type)}
-                                </span>
+                                <CardTypeBadge type={card.type} className="ml-1.5 text-[10px] px-1 py-0" />
                                 {claimedBy && claimedBy.length > 0 && (
                                   <span className="ml-1.5 text-[10px] text-red-400" title={`Used by ${claimedBy.join(', ')}`}>
                                     ({claimedBy.join(', ')})
@@ -1272,12 +1264,12 @@ export default function DeckBuilder() {
                               </div>
                             </div>
                             {card.traits && (
-                              <p className="mt-0.5 pl-4 text-[10px] text-[var(--color-text-muted)]">
+                              <p className="mt-0.5 pl-4 text-[10px] text-muted-foreground">
                                 {card.traits}
                               </p>
                             )}
                           </td>
-                          <td className="px-2 py-2 text-center text-xs text-[var(--color-text-muted)]">
+                          <td className="px-2 py-2 text-center text-xs text-muted-foreground">
                             {card.cost ?? '—'}
                           </td>
                           <td className="px-2 py-2 text-center text-xs">
@@ -1287,7 +1279,7 @@ export default function DeckBuilder() {
                                 ? 'text-red-400'
                                 : remaining < effectiveQty
                                   ? 'text-amber-400'
-                                  : 'text-[var(--color-text-muted)]';
+                                  : 'text-muted-foreground';
                               return <span className={cls}>{remaining}</span>;
                             })()}
                           </td>
@@ -1302,7 +1294,7 @@ export default function DeckBuilder() {
                                 </button>
                               )}
                               <span
-                                className={`w-4 text-center text-xs ${inDeck > 0 ? 'font-bold text-[var(--color-primary)]' : ''}`}
+                                className={`w-4 text-center text-xs ${inDeck > 0 ? 'font-bold text-primary' : ''}`}
                               >
                                 {inDeck > 0 ? inDeck : ''}
                               </span>
@@ -1326,7 +1318,7 @@ export default function DeckBuilder() {
           </div>
 
           {/* Composition */}
-          <div className="rounded-lg border border-white/10 bg-[var(--color-surface)] p-4">
+          <div className="rounded-lg border border-white/10 bg-card p-4">
             <h2 className="mb-3 text-sm font-semibold">Composition</h2>
 
             {/* Segmented type bar */}
@@ -1344,7 +1336,7 @@ export default function DeckBuilder() {
             {/* Type pills */}
             <div className="mb-4 flex flex-wrap gap-x-3 gap-y-1">
               {typeBreakdown.map(([type, count]) => (
-                <span key={type} className="flex items-center gap-1 text-[10px] text-[var(--color-text-muted)]">
+                <span key={type} className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <span className={`inline-block h-2 w-2 flex-shrink-0 rounded-full ${TYPE_COLOR[type] ?? 'bg-gray-500'}`} />
                   {formatType(type)} {count}
                 </span>
@@ -1352,7 +1344,7 @@ export default function DeckBuilder() {
             </div>
 
             {/* Cost curve */}
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Cost Curve</p>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Cost Curve</p>
             <div className="flex gap-1">
               {COST_BUCKETS.map(cost => {
                 const count = costBreakdown[cost];
@@ -1364,11 +1356,11 @@ export default function DeckBuilder() {
                     </span>
                     <div className="flex h-9 w-full items-end">
                       <div
-                        className="w-full rounded-t-sm bg-[var(--color-primary)] transition-all duration-300"
+                        className="w-full rounded-t-sm bg-primary transition-all duration-300"
                         style={{ height: `${barPx}px` }}
                       />
                     </div>
-                    <span className="mt-0.5 text-[10px] leading-none text-[var(--color-text-muted)]">
+                    <span className="mt-0.5 text-[10px] leading-none text-muted-foreground">
                       {cost === 4 ? '4+' : cost}
                     </span>
                   </div>
@@ -1385,7 +1377,7 @@ export default function DeckBuilder() {
           </div>
 
           {/* AI Analysis */}
-          <div className="rounded-lg border border-white/10 bg-[var(--color-surface)] p-4">
+          <div className="rounded-lg border border-white/10 bg-card p-4">
             <h2 className="mb-3 flex items-center gap-1.5 font-semibold">
               <span>✨</span> AI Analysis
             </h2>
@@ -1400,7 +1392,7 @@ export default function DeckBuilder() {
                     className={`rounded-full px-3 py-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
                       isActive
                         ? 'bg-purple-600 text-white ring-2 ring-purple-400'
-                        : 'border border-white/10 text-[var(--color-text-muted)] hover:border-white/20 hover:text-[var(--color-text)]'
+                        : 'border border-white/10 text-muted-foreground hover:border-white/20 hover:text-foreground'
                     }`}
                   >
                     {pill.label}
@@ -1410,7 +1402,7 @@ export default function DeckBuilder() {
             </div>
             <div className="min-h-[3rem]">
               {aiLoading && !aiSuggestions && (
-                <div className="flex items-center gap-2 py-3 text-sm text-[var(--color-text-muted)]">
+                <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
                   <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-purple-400 border-t-transparent" />
                   Analyzing your deck...
                 </div>
@@ -1422,7 +1414,7 @@ export default function DeckBuilder() {
                 />
               )}
               {!aiLoading && !aiSuggestions && (
-                <p className="text-xs text-[var(--color-text-muted)]">Pick a focus above to get AI-powered deck suggestions.</p>
+                <p className="text-xs text-muted-foreground">Pick a focus above to get AI-powered deck suggestions.</p>
               )}
             </div>
           </div>
@@ -1432,40 +1424,50 @@ export default function DeckBuilder() {
         <div className={`${mobileTab === 'cards' ? 'hidden lg:flex' : 'flex'} w-full flex-col gap-3 lg:w-96 lg:flex-shrink-0`}>
           {/* Hero card */}
           {selectedHero && (() => {
-            const shownIdentity = selectedHero.identities.find(i =>
-              heroSide === 'alter_ego' ? i.identityType === 'alter_ego' : i.identityType.startsWith('hero')
-            ) ?? selectedHero.identities[0];
-            const hasAlterEgo = selectedHero.identities.some(i => i.identityType === 'alter_ego');
+            const identities = sortedIdentities(selectedHero);
+            const idx = Math.min(heroIdentityIndex, identities.length - 1);
+            const shownIdentity = identities[idx];
             return (
               <div className="overflow-hidden rounded-lg border border-white/10">
                 <div className="relative aspect-[63/88] w-full bg-black/30">
                   {shownIdentity?.imageUrl ? (
                     <img src={shownIdentity.imageUrl} alt={shownIdentity.name} className="h-full w-full object-cover" />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-xs text-[var(--color-text-muted)]">No Image</div>
+                    <div className="flex h-full items-center justify-center text-xs text-muted-foreground">No Image</div>
                   )}
                 </div>
-                {hasAlterEgo && (
-                  <button
-                    onClick={() => setHeroSide(s => s === 'hero' ? 'alter_ego' : 'hero')}
-                    className="w-full bg-[var(--color-surface)] px-3 py-2 text-xs text-[var(--color-text-muted)] transition hover:bg-white/5 hover:text-[var(--color-text)]"
-                  >
-                    {heroSide === 'hero' ? `Flip to Alter Ego →` : `← Flip to Hero`}
-                  </button>
+                {identities.length > 1 && (
+                  <div className="flex flex-wrap gap-1.5 bg-card px-3 py-2">
+                    {identities.map((id, i) => (
+                      <button
+                        key={id.identityType}
+                        onClick={() => setHeroIdentityIndex(i)}
+                        className={`rounded px-2 py-1 text-xs font-medium transition ${
+                          i === idx
+                            ? 'bg-primary text-white'
+                            : 'bg-white/10 text-muted-foreground hover:bg-white/20 hover:text-foreground'
+                        }`}
+                      >
+                        {identityLabel(id.identityType)}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
             );
           })()}
           {/* Hero Overview */}
-          {heroSummary && selectedHero && heroIdentity && (
-            <div className="rounded-lg border border-white/10 bg-[var(--color-surface)] p-3">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Hero Overview</p>
-              <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-[var(--color-text-muted)]">
-                {heroIdentity.attack != null && <span>ATK <strong className="text-white">{heroIdentity.attack}</strong></span>}
-                {heroIdentity.thwart != null && <span>THW <strong className="text-white">{heroIdentity.thwart}</strong></span>}
-                {heroIdentity.defense != null && <span>DEF <strong className="text-white">{heroIdentity.defense}</strong></span>}
-                {heroIdentity.recover != null && <span>REC <strong className="text-white">{heroIdentity.recover}</strong></span>}
-                {heroIdentity.handSize != null && <span>HAND <strong className="text-white">{heroIdentity.handSize}</strong></span>}
+          {heroSummary && selectedHero && shownIdentityForStats && (
+            <div className="rounded-lg border border-white/10 bg-card p-3">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {identityLabel(shownIdentityForStats.identityType)} Overview
+              </p>
+              <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+                {shownIdentityForStats.attack != null && <span>ATK <strong className="text-white">{shownIdentityForStats.attack}</strong></span>}
+                {shownIdentityForStats.thwart != null && <span>THW <strong className="text-white">{shownIdentityForStats.thwart}</strong></span>}
+                {shownIdentityForStats.defense != null && <span>DEF <strong className="text-white">{shownIdentityForStats.defense}</strong></span>}
+                {shownIdentityForStats.recover != null && <span>REC <strong className="text-white">{shownIdentityForStats.recover}</strong></span>}
+                {shownIdentityForStats.handSize != null && <span>HAND <strong className="text-white">{shownIdentityForStats.handSize}</strong></span>}
                 <span>HP <strong className="text-white">{selectedHero.health}</strong></span>
               </div>
               {(heroSummary.strengths.length > 0 || heroSummary.weaknesses.length > 0) && (
@@ -1478,12 +1480,12 @@ export default function DeckBuilder() {
                   ))}
                 </div>
               )}
-              <p className="text-[10px] text-[var(--color-text-muted)]">{heroSummary.pairsSuggestion}</p>
+              <p className="text-[10px] text-muted-foreground">{heroSummary.pairsSuggestion}</p>
             </div>
           )}
 
           {/* Deck stats */}
-          <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-white/10 bg-[var(--color-surface)] p-4">
+          <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-white/10 bg-card p-4">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="font-semibold">Deck</h2>
               <span
@@ -1492,29 +1494,24 @@ export default function DeckBuilder() {
                     ? 'text-red-400'
                     : totalDeckSize >= 40
                       ? 'text-green-400'
-                      : 'text-[var(--color-text-muted)]'
+                      : 'text-muted-foreground'
                 }`}
               >
                 {totalDeckSize}
               </span>
             </div>
-            <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-              <div
-                className={`h-full rounded-full transition-all ${totalDeckSize > 50 ? 'bg-red-500' : totalDeckSize >= 40 ? 'bg-green-500' : 'bg-[var(--color-primary)]'}`}
-                style={{ width: `${Math.min(100, (totalDeckSize / 40) * 100)}%` }}
-              />
-            </div>
+            <DeckProgress count={totalDeckSize} className="mb-3 h-1.5" />
 
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
               {deckEntries.length === 0 ? (
-                <p className="py-4 text-center text-xs text-[var(--color-text-muted)]">
+                <p className="py-4 text-center text-xs text-muted-foreground">
                   No cards added yet
                 </p>
               ) : (
                 <div className="space-y-2">
                   {TYPE_ORDER.filter(type => deckEntries.some(e => e.card.type === type)).map(type => (
                     <div key={type}>
-                      <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+                      <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                         {TYPE_LABEL[type]}
                       </p>
                       {deckEntries.filter(e => e.card.type === type).map(e => (
@@ -1528,32 +1525,32 @@ export default function DeckBuilder() {
           </div>
 
           {/* Save */}
-          <div className="rounded-lg border border-white/10 bg-[var(--color-surface)] p-4">
+          <div className="rounded-lg border border-white/10 bg-card p-4">
             <h2 className="mb-3 font-semibold">
               {sessionContext ? 'Save to Session' : editDeckId ? 'Update Deck' : 'Save Deck'}
             </h2>
-            <input
-              type="text"
+            <Input
               placeholder={`${selectedHero?.name} — ${selectedAspects.join('/')}`}
               value={deckName}
               onChange={e => setDeckName(e.target.value)}
-              className="mb-3 w-full rounded border border-white/10 bg-black/30 px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-[var(--color-secondary)]"
+              className="mb-3"
             />
-            <button
+            <Button
               onClick={() => doSave()}
               disabled={saveStatus === 'saving' || totalDeckSize < 40 || totalDeckSize > 50 || (!sessionContext && !hasChanges)}
-              className="w-full rounded bg-[var(--color-primary)] px-4 py-2 text-sm font-medium transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full"
             >
               {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved!' : sessionContext ? 'Save Deck' : saveLabel}
-            </button>
+            </Button>
             {editDeckId && !sessionContext && (
-              <button
+              <Button
+                variant="outline"
                 onClick={() => doSave(true)}
                 disabled={saveStatus === 'saving' || totalDeckSize < 40 || totalDeckSize > 50}
-                className="mt-2 w-full rounded border border-white/10 px-4 py-2 text-sm font-medium text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-[var(--color-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-2 w-full"
               >
                 Save as New Deck
-              </button>
+              </Button>
             )}
             {saveStatus === 'error' && (
               <p className="mt-2 text-xs text-red-400">Failed to save. Please try again.</p>
@@ -1569,121 +1566,88 @@ export default function DeckBuilder() {
       </div>
       <CardModal card={modalCard} onClose={() => setModalCard(null)} />
 
-      {/* Import Dialog */}
-      {importDialogOpen && (
-        <>
-          <div 
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
-            onClick={() => {
-              setImportDialogOpen(false);
-              setImportInput('');
-              setImportError('');
-              setImportConfirm(null);
-            }}
-          />
-          <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-white/10 bg-[var(--color-surface)] p-6 shadow-xl">
-            <h2 className="mb-4 text-lg font-semibold">Import from MarvelCDB</h2>
-            
-            {!importConfirm ? (
-              <>
-                <p className="mb-4 text-sm text-[var(--color-text-muted)]">
-                  Paste a MarvelCDB deck URL or decklist ID to import cards.
+      <Dialog
+        open={importDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setImportDialogOpen(false);
+            setImportInput('');
+            setImportError('');
+            setImportConfirm(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Import from MarvelCDB</DialogTitle>
+          </DialogHeader>
+          {!importConfirm ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Paste a MarvelCDB deck URL or decklist ID to import cards.
+              </p>
+              <Input
+                placeholder="https://marvelcdb.com/decklist/view/12345 or just 12345"
+                value={importInput}
+                onChange={e => setImportInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleImport()}
+                autoFocus
+              />
+              {importError && <p className="text-sm text-red-400">{importError}</p>}
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => { setImportDialogOpen(false); setImportInput(''); setImportError(''); }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleImport} disabled={importLoading || !importInput.trim()} className="flex-1">
+                  {importLoading ? 'Importing…' : 'Import'}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="rounded border border-yellow-500/30 bg-yellow-500/10 p-3">
+                <p className="text-sm font-medium text-yellow-400">
+                  {importConfirm.mismatch === 'both' && 'Hero and aspect mismatch'}
+                  {importConfirm.mismatch === 'hero' && 'Hero mismatch'}
+                  {importConfirm.mismatch === 'aspect' && 'Aspect mismatch'}
                 </p>
-                <input
-                  type="text"
-                  placeholder="https://marvelcdb.com/decklist/view/12345 or just 12345"
-                  value={importInput}
-                  onChange={e => setImportInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleImport()}
-                  className="mb-3 w-full rounded border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[var(--color-secondary)]"
-                  autoFocus
-                />
-                {importError && (
-                  <p className="mb-3 text-sm text-red-400">{importError}</p>
-                )}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setImportDialogOpen(false);
-                      setImportInput('');
-                      setImportError('');
-                    }}
-                    className="flex-1 rounded border border-white/10 px-4 py-2 text-sm font-medium transition hover:bg-white/5"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleImport}
-                    disabled={importLoading || !importInput.trim()}
-                    className="flex-1 rounded bg-[var(--color-primary)] px-4 py-2 text-sm font-medium transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {importLoading ? 'Importing…' : 'Import'}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="mb-4 rounded border border-yellow-500/30 bg-yellow-500/10 p-3">
-                  <p className="text-sm font-medium text-yellow-400">
-                    {importConfirm.mismatch === 'both' && 'Hero and aspect mismatch'}
-                    {importConfirm.mismatch === 'hero' && 'Hero mismatch'}
-                    {importConfirm.mismatch === 'aspect' && 'Aspect mismatch'}
-                  </p>
-                  <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-                    The deck "{importConfirm.deckName}" is for{' '}
-                    <strong className="text-[var(--color-text)]">{importConfirm.heroName}</strong>
-                    {importConfirm.heroCode !== WARLOCK_ID && importConfirm.aspects.length > 0 && (
-                      <> with <strong className="text-[var(--color-text)]">{importConfirm.aspects.join('/')}</strong></>
-                    )}
-                    {importConfirm.heroCode === WARLOCK_ID && (
-                      <> <span className="text-xs">(uses all aspects)</span></>
-                    )}.
-                  </p>
-                  <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-                    You're currently building{' '}
-                    <strong className="text-[var(--color-text)]">{selectedHero?.name}</strong>
-                    {selectedHero?.id !== WARLOCK_ID && selectedAspects.length > 0 && (
-                      <> with <strong className="text-[var(--color-text)]">{selectedAspects.join('/')}</strong></>
-                    )}
-                    {selectedHero?.id === WARLOCK_ID && (
-                      <> <span className="text-xs">(uses all aspects)</span></>
-                    )}.
-                  </p>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={confirmImportWithSwitch}
-                    className="w-full rounded bg-[var(--color-primary)] px-4 py-2 text-sm font-medium transition hover:opacity-90"
-                  >
-                    Switch to {importConfirm.heroName}
-                    {importConfirm.heroCode !== WARLOCK_ID && importConfirm.aspects.length > 0 && ` (${importConfirm.aspects.join('/')})`}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setImportConfirm(null);
-                      setImportError('');
-                    }}
-                    className="w-full rounded border border-white/10 px-4 py-2 text-sm font-medium transition hover:bg-white/5"
-                  >
-                    Try Different Deck
-                  </button>
-                  <button
-                    onClick={() => {
-                      setImportDialogOpen(false);
-                      setImportInput('');
-                      setImportError('');
-                      setImportConfirm(null);
-                    }}
-                    className="w-full px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:text-[var(--color-text)]"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </>
-      )}
+                <p className="mt-1 text-sm text-muted-foreground">
+                  The deck "{importConfirm.deckName}" is for{' '}
+                  <strong className="text-foreground">{importConfirm.heroName}</strong>
+                  {importConfirm.heroCode !== WARLOCK_ID && importConfirm.aspects.length > 0 && (
+                    <> with <strong className="text-foreground">{importConfirm.aspects.join('/')}</strong></>
+                  )}
+                  {importConfirm.heroCode === WARLOCK_ID && <> <span className="text-xs">(uses all aspects)</span></>}.
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  You're currently building{' '}
+                  <strong className="text-foreground">{selectedHero?.name}</strong>
+                  {selectedHero?.id !== WARLOCK_ID && selectedAspects.length > 0 && (
+                    <> with <strong className="text-foreground">{selectedAspects.join('/')}</strong></>
+                  )}
+                  {selectedHero?.id === WARLOCK_ID && <> <span className="text-xs">(uses all aspects)</span></>}.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Button onClick={confirmImportWithSwitch} className="w-full">
+                  Switch to {importConfirm.heroName}
+                  {importConfirm.heroCode !== WARLOCK_ID && importConfirm.aspects.length > 0 && ` (${importConfirm.aspects.join('/')})`}
+                </Button>
+                <Button variant="outline" onClick={() => { setImportConfirm(null); setImportError(''); }} className="w-full">
+                  Try Different Deck
+                </Button>
+                <Button variant="ghost" onClick={() => { setImportDialogOpen(false); setImportInput(''); setImportError(''); setImportConfirm(null); }} className="w-full">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
       
     </div>
   );
@@ -1701,17 +1665,20 @@ function DeckRow({
   onCardClick: (card: CardPoolItem) => void;
 }) {
   const isHero = !!entry.card.heroId;
-  const nameColor = isHero
-    ? 'text-white'
-    : (ASPECT_TEXT_COLOR[entry.card.aspect ?? ''] ?? '');
+  const nameStyle = isHero
+    ? { color: 'white' }
+    : entry.card.aspect
+      ? { color: `var(--color-aspect-text-${entry.card.aspect.toLowerCase()})` }
+      : undefined;
   return (
     <div className="group flex items-center gap-1.5 text-xs">
-      <span className={`w-3 flex-shrink-0 text-right font-bold ${isHero ? 'text-white/50' : 'text-[var(--color-text-muted)]'}`}>
+      <span className={`w-3 flex-shrink-0 text-right font-bold ${isHero ? 'text-white/50' : 'text-muted-foreground'}`}>
         {entry.quantity}
       </span>
       <button
         onClick={() => onCardClick(entry.card)}
-        className={`min-w-0 flex-1 truncate text-left hover:underline ${nameColor}`}
+        className="min-w-0 flex-1 truncate text-left hover:underline"
+        style={nameStyle}
       >
         {entry.card.name}
       </button>
@@ -1737,11 +1704,8 @@ function DeckRow({
 
 function OwnedOnlyButton({ active, onClick }: { active: boolean; onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      className={`shrink-0 rounded px-2.5 py-1.5 text-xs font-medium transition hover:opacity-90 ${active ? 'bg-[var(--color-primary)]' : 'bg-white/10'}`}
-    >
+    <Button variant={active ? 'default' : 'outline'} size="sm" onClick={onClick} className="shrink-0">
       Owned only
-    </button>
+    </Button>
   );
 }

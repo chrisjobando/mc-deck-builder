@@ -1,10 +1,19 @@
 import { useMemo, useState } from 'react';
-import type { PackType } from '../lib/packs';
-import { ALL_PACKS, ALWAYS_OWNED_CODES, CYCLES } from '../lib/packs';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import type { PackType } from '@/lib/packs';
+import { ALL_PACKS, ALWAYS_OWNED_CODES, CYCLES } from '@/lib/packs';
 
 interface Props {
   initialOwned: string[];
 }
+
+const SAVE_LABELS: Record<SaveState, string> = {
+  saving: 'Saving…',
+  saved: 'Saved!',
+  error: 'Error — try again',
+  idle: 'Unsaved changes',
+};
 
 const COLUMN_LABELS: Record<PackType, string> = {
   expansion: 'Expansion',
@@ -17,13 +26,14 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 function ProgressPill({ owned, total }: { owned: number; total: number }) {
   const complete = owned === total;
   return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${
-        complete ? 'bg-green-500/20 text-green-400' : 'bg-white/10 text-[var(--color-text-muted)]'
+    <Badge
+      variant="outline"
+      className={`border-transparent tabular-nums text-xs font-semibold ${
+        complete ? 'bg-green-500/20 text-green-400' : 'bg-white/10 text-muted-foreground'
       }`}
     >
       {owned} / {total}
-    </span>
+    </Badge>
   );
 }
 
@@ -83,25 +93,21 @@ export default function CollectionGrid({ initialOwned }: Props) {
     }
   };
 
-  const saveLabel =
-    saveState === 'saving' ? 'Saving…' :
-    saveState === 'saved' ? 'Saved!' :
-    saveState === 'error' ? 'Error — try again' :
-    'Unsaved changes';
+  const saveLabel = SAVE_LABELS[saveState];
 
   return (
     <>
-      {/* Total progress + save button */}
-      <div className="mb-8 rounded-lg border border-white/10 bg-white/5 p-4">
+      {/* Total progress */}
+      <div className="mb-8 rounded-lg border border-border bg-white/5 p-4">
         <div className="mb-2 flex items-center justify-between">
           <span className="text-sm font-semibold">Total collection</span>
-          <span className="text-sm tabular-nums text-[var(--color-text-muted)]">
+          <span className="text-sm tabular-nums text-muted-foreground">
             {totalOwned} / {totalPacks}
           </span>
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
           <div
-            className="h-full rounded-full bg-[var(--color-primary)] transition-all duration-300"
+            className="h-full rounded-full bg-primary transition-all duration-300"
             style={{ width: `${(totalOwned / totalPacks) * 100}%` }}
           />
         </div>
@@ -123,19 +129,21 @@ export default function CollectionGrid({ initialOwned }: Props) {
           return (
             <section key={cycle.number}>
               <div className="mb-3 flex items-center gap-2">
-                <h2 className="text-lg font-semibold text-[var(--color-text-muted)]">{cycle.name}</h2>
+                <h2 className="text-lg font-semibold text-muted-foreground">{cycle.name}</h2>
                 <ProgressPill owned={cycleOwned} total={cycleTotal} />
-                <button
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="ml-auto text-xs text-muted-foreground hover:text-foreground p-0 h-auto"
                   onClick={() => selectAllInCycle(cycle.number, !allSelected)}
-                  className="ml-auto text-xs text-[var(--color-text-muted)] underline-offset-2 hover:text-[var(--color-text)] hover:underline"
                 >
                   {allSelected ? 'Deselect all' : 'Select all'}
-                </button>
+                </Button>
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 {columns.map(col => (
-                  <div key={col.label} className="rounded-lg border border-white/10 bg-white/5 p-4">
-                    <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+                  <div key={col.label} className="rounded-lg border border-border bg-white/5 p-4">
+                    <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       {col.label}
                     </h3>
                     <ul className="space-y-2">
@@ -149,14 +157,14 @@ export default function CollectionGrid({ initialOwned }: Props) {
                             >
                               <input
                                 type="checkbox"
-                                className="h-4 w-4 accent-[var(--color-primary)]"
+                                className="h-4 w-4 accent-primary"
                                 checked={isOwned}
                                 disabled={alwaysOwned}
                                 onChange={e => toggle(pack.code, e.target.checked)}
                               />
                               <span className="text-sm">{pack.name}</span>
                               {alwaysOwned && (
-                                <span className="ml-auto text-xs text-[var(--color-text-muted)]">always</span>
+                                <span className="ml-auto text-xs text-muted-foreground">always</span>
                               )}
                             </label>
                           </li>
@@ -171,19 +179,20 @@ export default function CollectionGrid({ initialOwned }: Props) {
         })}
       </div>
 
+      {/* Floating save bar */}
       <div
         className={`fixed bottom-0 left-0 right-0 flex items-center justify-center px-4 pt-4 transition-all duration-200 ${dirty ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`}
         style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
       >
-        <div className="flex items-center gap-4 rounded-xl border border-white/20 bg-[var(--color-surface,#1e1e2e)] px-6 py-3 shadow-2xl">
-          <span className="w-36 text-sm text-[var(--color-text-muted)]">{saveLabel}</span>
-          <button
+        <div className="flex items-center gap-4 rounded-xl border border-border bg-card px-6 py-3 shadow-2xl">
+          <span className="w-36 text-sm text-muted-foreground">{saveLabel}</span>
+          <Button
             onClick={handleSave}
             disabled={saveState === 'saving'}
-            className="w-16 rounded-lg bg-[var(--color-primary)] py-1.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+            size="sm"
           >
             Save
-          </button>
+          </Button>
         </div>
       </div>
     </>

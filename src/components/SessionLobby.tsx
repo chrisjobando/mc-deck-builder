@@ -1,10 +1,11 @@
 import PusherClient from 'pusher-js';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ASPECT_BG } from '../lib/cardFormatting';
-import type { LobbyParticipant, LobbySession } from '../lib/sessions';
-import { STATUS_COLOR, STATUS_LABEL } from '../lib/sessions';
-import { heroSlug, WARLOCK_ID } from '../lib/utils';
-import { showAlert, showConfirm } from '../lib/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { AspectButton, StatusBadge } from '@/components/ui/marvel';
+import type { LobbyParticipant, LobbySession } from '@/lib/sessions';
+import { heroSlug, WARLOCK_ID } from '@/lib/utils';
+import { showAlert, showConfirm } from '@/lib/dialog';
 
 interface HeroIdentity {
   identityType: string;
@@ -92,13 +93,14 @@ function ParticipantSlot({
                 className="h-6 w-6 rounded-full object-cover object-top"
               />
             )}
-            <span className="truncate text-xs text-[var(--color-text-muted)]">
+            <span className="truncate text-xs text-muted-foreground">
               {participant.heroName}
             </span>
             {participant.aspects.map((a) => (
               <span
                 key={a}
-                className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium text-white ${ASPECT_BG[a] ?? 'bg-gray-700'}`}
+                className="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
+                style={{ backgroundColor: `var(--color-aspect-${a.toLowerCase()})` }}
               >
                 {a[0]}
               </span>
@@ -149,13 +151,12 @@ function HeroPicker({
 
   return (
     <div>
-      <h3 className="mb-2 text-sm font-semibold text-[var(--color-text-muted)]">Choose Hero</h3>
-      <input
-        type="search"
+      <h3 className="mb-2 text-sm font-semibold text-muted-foreground">Choose Hero</h3>
+      <Input
         value={search}
         onChange={(e) => handleSearch(e.target.value)}
         placeholder="Search heroes…"
-        className="mb-3 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+        className="mb-3"
       />
       <div className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto pr-1">
         {filtered.map((hero) => {
@@ -173,7 +174,7 @@ function HeroPicker({
                 isDisabled
                   ? 'cursor-not-allowed border-white/5 opacity-30'
                   : isSelected
-                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/20 ring-1 ring-[var(--color-primary)]'
+                    ? 'border-primary bg-primary/20 ring-1 ring-primary'
                     : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
               }`}
             >
@@ -219,26 +220,18 @@ function AspectPicker({
 }) {
   return (
     <div>
-      <h3 className="mb-2 text-sm font-semibold text-[var(--color-text-muted)]">
+      <h3 className="mb-2 text-sm font-semibold text-muted-foreground">
         Aspects {isMultiAspect ? '(pick 2)' : '(pick 1)'}
       </h3>
-      <div className="flex flex-wrap gap-2">
-        {ASPECTS.map((aspect) => {
-          const selected = selectedAspects.includes(aspect);
-          return (
-            <button
-              key={aspect}
-              onClick={() => onToggle(aspect)}
-              className={`rounded-full px-3 py-1 text-sm font-medium transition ${
-                selected
-                  ? `${ASPECT_BG[aspect]} text-white ring-2 ring-white/30`
-                  : 'bg-white/10 text-gray-400 hover:bg-white/20'
-              }`}
-            >
-              {aspect}
-            </button>
-          );
-        })}
+      <div className="grid grid-cols-3 gap-2">
+        {ASPECTS.map((aspect) => (
+          <AspectButton
+            key={aspect}
+            aspect={aspect}
+            isSelected={selectedAspects.includes(aspect)}
+            onClick={() => onToggle(aspect)}
+          />
+        ))}
       </div>
     </div>
   );
@@ -464,22 +457,18 @@ export default function SessionLobby() {
     <div>
       {/* Header */}
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <a href="/sessions" className="text-sm text-[var(--color-text-muted)] hover:text-white">
+        <a href="/sessions" className="text-sm text-muted-foreground hover:text-white">
           ← Sessions
         </a>
         <h1 className="text-2xl font-bold">{session.name}</h1>
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLOR[session.status]}`}
-        >
-          {STATUS_LABEL[session.status]}
-        </span>
+        <StatusBadge status={session.status} />
       </div>
 
       {/* ── Phase 1: Lobby ── */}
       {session.status === 'draft' && (
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           <div className="space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Players ({session.participants.length}/4)
             </h2>
             {slots.map((_, i) => {
@@ -493,36 +482,34 @@ export default function SessionLobby() {
 
           <div className="rounded-xl border border-white/10 bg-white/5 p-6">
             <h2 className="mb-2 text-base font-semibold">Waiting for players</h2>
-            <p className="mb-4 text-sm text-[var(--color-text-muted)]">
+            <p className="mb-4 text-sm text-muted-foreground">
               Share your invite code so others can join. Once everyone's in, start the draft.
             </p>
             <div className="mb-4 flex items-center gap-2 rounded-lg bg-black/20 px-3 py-2">
-              <span className="font-mono text-xl font-bold tracking-widest text-[var(--color-primary)]">
+              <span className="font-mono text-xl font-bold tracking-widest text-primary">
                 {session.inviteCode}
               </span>
               <button
                 onClick={copyInviteCode}
-                className="ml-auto text-xs text-[var(--color-text-muted)] hover:text-white"
+                className="ml-auto text-xs text-muted-foreground hover:text-white"
               >
                 {copied ? 'Copied!' : 'Copy'}
               </button>
             </div>
             {isHost && (
-              <button
-                onClick={() => handleStatusChange('drafting')}
-                className="w-full rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold hover:opacity-90"
-              >
+              <Button onClick={() => handleStatusChange('drafting')} className="w-full">
                 Start Draft →
-              </button>
+              </Button>
             )}
             {isHost && (
-              <button
+              <Button
+                variant="outline"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="mt-2 w-full rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/20 disabled:opacity-50"
+                className="mt-2 w-full border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20"
               >
                 {deleting ? 'Deleting…' : 'Delete Session'}
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -533,7 +520,7 @@ export default function SessionLobby() {
         <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
           {/* Roster */}
           <div className="space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Players ({session.participants.filter((p) => p.isLocked).length}/{session.participants.length} locked)
             </h2>
             {slots.map((_, i) => {
@@ -546,20 +533,16 @@ export default function SessionLobby() {
 
             {isHost && (
               <div className="flex gap-2 pt-2">
-                <button
-                  onClick={() => handleStatusChange('draft')}
-                  className="rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/20"
-                >
+                <Button variant="outline" onClick={() => handleStatusChange('draft')}>
                   ← Back to Lobby
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => handleStatusChange('building')}
                   disabled={!allLocked}
                   title={!allLocked ? 'All players must lock in first' : undefined}
-                  className="rounded-lg bg-[var(--color-primary)] px-5 py-2 text-sm font-semibold hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Start Building →
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -567,7 +550,7 @@ export default function SessionLobby() {
           {/* My pick panel — hidden once locked */}
           {!myLocked ? (
             <div className="space-y-5 rounded-xl border border-white/10 bg-white/5 p-5">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                 Your Pick
               </h2>
               <HeroPicker
@@ -583,13 +566,13 @@ export default function SessionLobby() {
                   onToggle={handleAspectToggle}
                 />
               )}
-              <button
+              <Button
                 onClick={handleLockIn}
                 disabled={!myHeroId || myAspects.length === 0 || locking}
-                className="w-full rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-40"
+                className="w-full bg-green-600 hover:bg-green-500"
               >
                 {locking ? 'Locking in…' : 'Lock In'}
-              </button>
+              </Button>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-green-500/30 bg-green-500/5 p-8 text-center">
@@ -606,13 +589,9 @@ export default function SessionLobby() {
                 </div>
               </div>
               <p className="text-xs text-gray-600">Waiting for others…</p>
-              <button
-                onClick={handleUnlock}
-                disabled={unlocking}
-                className="mt-2 rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-white/20 disabled:opacity-50"
-              >
+              <Button variant="outline" onClick={handleUnlock} disabled={unlocking} className="mt-2">
                 {unlocking ? 'Unlocking…' : 'Change Selection'}
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -621,7 +600,7 @@ export default function SessionLobby() {
       {/* ── Phase 3: Build ── */}
       {session.status === 'building' && (
         <div className="space-y-6">
-          <p className="text-[var(--color-text-muted)]">
+          <p className="text-muted-foreground">
             Everyone's locked in — time to build! Open the builder with your hero pre-loaded.
           </p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -631,7 +610,7 @@ export default function SessionLobby() {
               return (
                 <div
                   key={p.id}
-                  className={`rounded-xl border p-5 ${isYou ? 'border-[var(--color-primary)]/40 bg-[var(--color-primary)]/5' : 'border-white/10 bg-white/5'}`}
+                  className={`rounded-xl border p-5 ${isYou ? 'border-primary/40 bg-primary/5' : 'border-white/10 bg-white/5'}`}
                 >
                   <div className="mb-3 flex items-center gap-2">
                     {p.userImage ? (
@@ -658,19 +637,17 @@ export default function SessionLobby() {
                     {p.aspects.map((a) => (
                       <span
                         key={a}
-                        className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium text-white ${ASPECT_BG[a] ?? 'bg-gray-700'}`}
+                        className="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
+                        style={{ backgroundColor: `var(--color-aspect-${a.toLowerCase()})` }}
                       >
                         {a}
                       </span>
                     ))}
                   </div>
                   {isYou && url && (
-                    <a
-                      href={url}
-                      className="block rounded-lg bg-[var(--color-primary)] px-4 py-2 text-center text-sm font-semibold hover:opacity-90"
-                    >
-                      Build Deck →
-                    </a>
+                    <Button asChild className="w-full">
+                      <a href={url}>Build Deck →</a>
+                    </Button>
                   )}
                 </div>
               );
@@ -679,18 +656,12 @@ export default function SessionLobby() {
 
           {isHost && (
             <div className="flex gap-2">
-              <button
-                onClick={() => handleStatusChange('drafting')}
-                className="rounded-lg border border-white/20 bg-white/10 px-5 py-2 text-sm font-medium hover:bg-white/20"
-              >
+              <Button variant="outline" onClick={() => handleStatusChange('drafting')}>
                 ← Back to Draft
-              </button>
-              <button
-                onClick={() => handleStatusChange('completed')}
-                className="rounded-lg border border-white/20 bg-white/10 px-5 py-2 text-sm font-semibold hover:bg-white/20"
-              >
+              </Button>
+              <Button variant="outline" onClick={() => handleStatusChange('completed')}>
                 End Session
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -701,7 +672,7 @@ export default function SessionLobby() {
         <div className="space-y-6">
           <div className="rounded-xl border border-white/10 bg-white/5 p-6 text-center">
             <div className="mb-2 text-lg font-semibold">Session Complete</div>
-            <p className="text-sm text-[var(--color-text-muted)]">Good luck out there!</p>
+            <p className="text-sm text-muted-foreground">Good luck out there!</p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {session.participants.map((p) => (
@@ -722,7 +693,11 @@ export default function SessionLobby() {
                 <div className="text-sm font-semibold">{p.heroName}</div>
                 <div className="mt-1 flex flex-wrap gap-1">
                   {p.aspects.map((a) => (
-                    <span key={a} className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium text-white ${ASPECT_BG[a] ?? 'bg-gray-700'}`}>
+                    <span
+                      key={a}
+                      className="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
+                      style={{ backgroundColor: `var(--color-aspect-${a.toLowerCase()})` }}
+                    >
                       {a}
                     </span>
                   ))}
@@ -732,19 +707,17 @@ export default function SessionLobby() {
           </div>
           {isHost && (
             <div className="flex gap-2">
-              <button
-                onClick={() => handleStatusChange('building')}
-                className="rounded-lg border border-white/20 bg-white/10 px-5 py-2 text-sm font-medium hover:bg-white/20"
-              >
+              <Button variant="outline" onClick={() => handleStatusChange('building')}>
                 ← Reopen Session
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="outline"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="rounded-lg border border-red-500/30 bg-red-500/10 px-5 py-2 text-sm font-medium text-red-400 hover:bg-red-500/20 disabled:opacity-50"
+                className="border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20"
               >
                 {deleting ? 'Deleting…' : 'Delete Session'}
-              </button>
+              </Button>
             </div>
           )}
         </div>
