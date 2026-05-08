@@ -822,7 +822,7 @@ const ASPECT_FILTERS = [
             <div class="hero-card-item bg-[var(--color-surface)] rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-[var(--color-primary)]" data-card-id="${c.id}">
               <div class="aspect-[63/88] relative">
                 ${c.imageUrl ? `
-                  <img src="${c.imageUrl}" alt="${c.name}" class="w-full h-full object-cover" loading="lazy" />
+                  <img src="${c.imageUrl}" alt="${c.name}" class="${c.type === 'player_side_scheme' ? 'pss-img' : 'w-full h-full object-cover'}" loading="lazy" />
                 ` : `
                   <div class="w-full h-full flex items-center justify-center text-[var(--color-text-muted)] text-xs">No Image</div>
                 `}

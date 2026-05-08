@@ -338,7 +338,7 @@ export default function DeckGrid({ decks: initialDecks }: { decks: DeckPreview[]
                     <div className="w-32 flex-shrink-0 sm:w-36">
                       <div className="relative aspect-[63/88] overflow-hidden rounded-lg bg-black/30">
                         {leftImageUrl ? (
-                          <img src={leftImageUrl} alt={selectedCard?.name ?? openDeck.heroName} className="h-full w-full object-cover" />
+                          <img src={leftImageUrl} alt={selectedCard?.name ?? openDeck.heroName} className={selectedCard?.type === 'player_side_scheme' ? 'pss-img' : 'h-full w-full object-cover'} />
                         ) : (
                           <div className="flex h-full items-center justify-center text-xs text-muted-foreground">No Image</div>
                         )}
