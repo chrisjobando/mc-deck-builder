@@ -1,0 +1,9 @@
+# Cards with Hall of Heroes image URLs
+# Format: table | id | hero | subtype | name | image_url
+
+hero_identity | 12001c | Ant-Man | hero_2 | Ant-Man | https://hallofheroeslcg.com/wp-content/uploads/2020/11/a0b.jpg
+hero_identity | 29003b | Ironheart | alter_ego | Riri Williams | https://hallofheroeslcg.com/wp-content/uploads/2022/05/i0c.jpg
+hero_identity | 29002b | Ironheart | alter_ego | Riri Williams | https://hallofheroeslcg.com/wp-content/uploads/2022/05/i0b.jpg
+hero_identity | 29002a | Ironheart | hero_2 | Ironheart | https://hallofheroeslcg.com/wp-content/uploads/2022/05/i0e.jpg
+hero_identity | 29003a | Ironheart | hero_3 | Ironheart | https://hallofheroeslcg.com/wp-content/uploads/2022/05/i0f.jpg
+hero_identity | 14001b | Quicksilver | alter_ego | Pietro Maximoff | https://hallofheroeslcg.com/wp-content/uploads/2020/12/0b.jpg
