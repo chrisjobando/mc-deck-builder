@@ -162,6 +162,19 @@ Managed via `src/pages/admin/documents.astro` (admin-only).
 
 Use TypeScript everywhere possible. Regular `<script>` tags in `.astro` files (without `is:inline`) **are** processed by Vite and support TypeScript and ES module imports — use them for page-level client logic. Only avoid `is:inline`, which strips TypeScript/module processing entirely. Prefer a React component (`client:load`) or a `.ts` module for anything complex.
 
+### Path Imports
+
+The `@/` alias maps to `src/`. Use it for all cross-file imports in `.tsx`, `.ts`, and `.astro` files — do **not** use relative `../../` paths.
+
+```ts
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { formatCardText } from '@/lib/cardFormatting';
+import { AspectBadge } from '@/components/ui/marvel';
+```
+
+Configured in both `tsconfig.json` (`paths`) and `astro.config.ts` (`vite.resolve.alias`) so the alias works in Astro frontmatter, React components, and client `<script>` tags alike.
+
 ## Components
 
 ### `src/components/DeckBuilder.tsx`
