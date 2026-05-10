@@ -1,0 +1,263 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import Section from '@/components/design/Section.astro';
+import Subsection from '@/components/design/Subsection.astro';
+import Swatch from '@/components/design/Swatch.astro';
+import GlyphGrid from '@/components/design/GlyphGrid.astro';
+import ComponentsShowcase from '@/components/design/ComponentsShowcase.tsx';
+import MotionDemo from '@/components/design/MotionDemo.tsx';
+import BorderBeamDemo from '@/components/design/BorderBeamDemo.tsx';
+import ShaderDemo from '@/components/design/ShaderDemo.tsx';
+import { formatCardText } from '@/lib/cardFormatting';
+
+const themeTokens = [
+  { label: 'Background', token: '--background', className: 'bg-background border' },
+  { label: 'Foreground', token: '--foreground', className: 'bg-foreground' },
+  { label: 'Card', token: '--card', className: 'bg-card border' },
+  { label: 'Muted', token: '--muted', className: 'bg-muted' },
+  { label: 'Primary', token: '--primary', className: 'bg-primary' },
+  { label: 'Secondary', token: '--secondary', className: 'bg-secondary' },
+  { label: 'Accent', token: '--accent', className: 'bg-accent' },
+  { label: 'Destructive', token: '--destructive', className: 'bg-destructive' },
+  { label: 'Border', token: '--border', className: 'bg-border' },
+  { label: 'Ring', token: '--ring', className: 'bg-ring' },
+];
+
+const aspects = [
+  { label: 'Aggression', token: '--color-aspect-aggression', className: 'bg-aspect-aggression' },
+  { label: 'Justice',    token: '--color-aspect-justice',    className: 'bg-aspect-justice'    },
+  { label: 'Leadership', token: '--color-aspect-leadership', className: 'bg-aspect-leadership' },
+  { label: 'Protection', token: '--color-aspect-protection', className: 'bg-aspect-protection' },
+  { label: 'Basic',      token: '--color-aspect-basic',      className: 'bg-aspect-basic'      },
+];
+
+const cardTypes = [
+  { label: 'Ally',        token: '--color-type-ally',        className: 'bg-type-ally'        },
+  { label: 'Event',       token: '--color-type-event',       className: 'bg-type-event'       },
+  { label: 'Support',     token: '--color-type-support',     className: 'bg-type-support'     },
+  { label: 'Upgrade',     token: '--color-type-upgrade',     className: 'bg-type-upgrade'     },
+  { label: 'Resource',    token: '--color-type-resource',    className: 'bg-type-resource'    },
+  { label: 'Side scheme', token: '--color-type-side-scheme', className: 'bg-type-side-scheme' },
+];
+
+const radii = [
+  { label: 'sm',   className: 'rounded-sm'   },
+  { label: 'md',   className: 'rounded-md'   },
+  { label: 'lg',   className: 'rounded-lg'   },
+  { label: 'xl',   className: 'rounded-xl'   },
+  { label: '2xl',  className: 'rounded-2xl'  },
+  { label: 'full', className: 'rounded-full' },
+];
+
+const spacing = [1, 2, 3, 4, 6, 8, 10, 12, 16];
+
+const sampleCardText = formatCardText(
+  '[[hero action]] Spend 1 [energy] [mental] or [physical] resource → draw a card. If you control a [unique] ally, draw 2 instead.\n[[response]] After this character defeats an enemy, ready them.'
+);
+
+const navItems = [
+  { id: 'foundations',   label: 'Foundations'   },
+  { id: 'components',    label: 'Components'    },
+  { id: 'marvel',        label: 'Marvel-specific' },
+  { id: 'motion',        label: 'Motion & effects' },
+];
+---
+
+<Layout title="Design system · MC Deckbuilder">
+  <div class="mx-auto grid w-full max-w-7xl gap-10 px-6 py-10 lg:grid-cols-[14rem_1fr]">
+    {/* Sidebar */}
+    <aside class="hidden lg:sticky lg:top-10 lg:block lg:self-start">
+      <div class="space-y-1">
+        <div class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          MC Deckbuilder
+        </div>
+        <h1 class="text-xl font-semibold tracking-tight text-foreground">Design system</h1>
+        <p class="text-xs text-muted-foreground">Tokens, components, and effects.</p>
+      </div>
+      <nav class="mt-6 space-y-1">
+        {navItems.map(item => (
+          <a
+            href={`#${item.id}`}
+            class="block rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            {item.label}
+          </a>
+        ))}
+      </nav>
+    </aside>
+
+    {/* Main */}
+    <main class="min-w-0">
+      <header class="mb-8 space-y-3 lg:hidden">
+        <div class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          MC Deckbuilder
+        </div>
+        <h1 class="text-3xl font-semibold tracking-tight text-foreground">Design system</h1>
+        <p class="max-w-xl text-sm text-muted-foreground">
+          Tokens, components, and effects. Dark mode by default.
+        </p>
+      </header>
+
+      <Section
+        id="foundations"
+        title="Foundations"
+        description="Color tokens, typography, radii, and spacing. Marvel-specific brand tokens are defined alongside shadcn's neutral base."
+      >
+        <Subsection title="Theme palette" description="shadcn radix-nova / neutral base, dark theme.">
+          <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
+            {themeTokens.map(t => (
+              <Swatch label={t.label} token={t.token} className={t.className} />
+            ))}
+          </div>
+        </Subsection>
+
+        <Subsection title="Marvel aspects" description="Hero deckbuilding aspects.">
+          <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
+            {aspects.map(a => (
+              <Swatch label={a.label} token={a.token} className={a.className} />
+            ))}
+          </div>
+        </Subsection>
+
+        <Subsection title="Card types" description="Playable card types in deck_cards.">
+          <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-6">
+            {cardTypes.map(c => (
+              <Swatch label={c.label} token={c.token} className={c.className} />
+            ))}
+          </div>
+        </Subsection>
+
+        <Subsection title="Typography" description="Geist Variable across the app.">
+          <div class="space-y-3 rounded-xl border border-border/60 bg-card/40 p-6">
+            <div class="text-5xl font-semibold tracking-tight">Display · 5xl semibold</div>
+            <div class="text-3xl font-semibold tracking-tight">Heading 1 · 3xl</div>
+            <div class="text-2xl font-semibold tracking-tight">Heading 2 · 2xl</div>
+            <div class="text-xl font-medium">Heading 3 · xl</div>
+            <div class="text-lg">Lead · lg</div>
+            <div class="text-base">Body · base. The quick brown fox jumps over the lazy Hulk.</div>
+            <div class="text-sm text-muted-foreground">Small · sm muted-foreground</div>
+            <code class="block font-mono text-xs text-muted-foreground">monospace · 12px</code>
+            <div class="flex flex-wrap gap-3 pt-2 text-base">
+              <span class="font-light">Light</span>
+              <span class="font-normal">Regular</span>
+              <span class="font-medium">Medium</span>
+              <span class="font-semibold">Semibold</span>
+              <span class="font-bold">Bold</span>
+            </div>
+          </div>
+        </Subsection>
+
+        <Subsection title="Radii">
+          <div class="flex flex-wrap items-end gap-4">
+            {radii.map(r => (
+              <div class="space-y-2 text-center">
+                <div class:list={['size-16 border border-border bg-muted', r.className]}></div>
+                <code class="block font-mono text-[11px] text-muted-foreground">{r.label}</code>
+              </div>
+            ))}
+          </div>
+        </Subsection>
+
+        <Subsection title="Spacing">
+          <div class="flex flex-wrap items-end gap-4">
+            {spacing.map(s => (
+              <div class="space-y-2 text-center">
+                <div
+                  class="bg-primary"
+                  style={`height: ${s * 4}px; width: ${s * 4}px;`}
+                ></div>
+                <code class="block font-mono text-[11px] text-muted-foreground">{s} · {s * 4}px</code>
+              </div>
+            ))}
+          </div>
+        </Subsection>
+      </Section>
+
+      <Section
+        id="components"
+        title="Components"
+        description="shadcn primitives in the radix-nova style. Interactive demos run as React islands."
+      >
+        <ComponentsShowcase client:load />
+      </Section>
+
+      <Section
+        id="marvel"
+        title="Marvel-specific"
+        description="Brand-layer pieces unique to Marvel Champions: glyph icons, aspect chips, card-type chips, and live-formatted card text."
+      >
+        <Subsection title="Glyph font" description="Marvel LCG icons rendered via the .marvel-glyph class.">
+          <GlyphGrid />
+        </Subsection>
+
+        <Subsection title="Aspect chips" description="Badges painted with the aspect tokens.">
+          <div class="flex flex-wrap gap-2">
+            {aspects.map(a => (
+              <span
+                class:list={[
+                  'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold tracking-wide text-white shadow-sm',
+                  a.className,
+                ]}
+              >
+                {a.label}
+              </span>
+            ))}
+          </div>
+        </Subsection>
+
+        <Subsection title="Card-type chips">
+          <div class="flex flex-wrap gap-2">
+            {cardTypes.map(c => (
+              <span
+                class:list={[
+                  'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold tracking-wide text-white shadow-sm',
+                  c.className,
+                ]}
+              >
+                {c.label}
+              </span>
+            ))}
+          </div>
+        </Subsection>
+
+        <Subsection title="Formatted card text" description="Routed through formatCardText() from src/lib/cardFormatting.ts.">
+          <div class="rounded-xl border border-border/60 bg-card/40 p-6">
+            <div class="text-base leading-relaxed text-foreground" set:html={sampleCardText} />
+          </div>
+        </Subsection>
+      </Section>
+
+      <Section
+        id="motion"
+        title="Motion & effects"
+        description="Animation libraries shipped with the app: motion/react, tw-animate-css, border-beam, and @paper-design/shaders-react."
+      >
+        <Subsection title="motion/react">
+          <MotionDemo client:load />
+        </Subsection>
+
+        <Subsection title="tw-animate-css" description="Class-driven keyframe utilities — no JS needed.">
+          <div class="flex flex-wrap items-center gap-6">
+            <div class="grid h-24 w-24 place-items-center rounded-xl bg-primary text-sm font-medium text-primary-foreground animate-in fade-in zoom-in-95 duration-700">
+              fade-in
+            </div>
+            <div class="grid h-24 w-24 place-items-center rounded-xl bg-secondary text-sm font-medium text-secondary-foreground animate-in slide-in-from-bottom-4 duration-700">
+              slide-up
+            </div>
+            <div class="grid h-24 w-24 place-items-center rounded-xl border border-border/60 bg-card text-sm font-medium animate-pulse">
+              pulse
+            </div>
+          </div>
+        </Subsection>
+
+        <Subsection title="border-beam">
+          <BorderBeamDemo client:load />
+        </Subsection>
+
+        <Subsection title="@paper-design/shaders-react" description="GPU shader background sample (MeshGradient).">
+          <ShaderDemo client:load />
+        </Subsection>
+      </Section>
+    </main>
+  </div>
+</Layout>

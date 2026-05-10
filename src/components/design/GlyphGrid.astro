@@ -1,0 +1,27 @@
+---
+const glyphs = [
+  { token: '[energy]',       char: 'e', label: 'Energy' },
+  { token: '[mental]',       char: 'm', label: 'Mental' },
+  { token: '[physical]',     char: 'p', label: 'Physical' },
+  { token: '[wild]',         char: 'w', label: 'Wild' },
+  { token: '[star]',         char: 'S', label: 'Star' },
+  { token: '[unique]',       char: 'U', label: 'Unique' },
+  { token: '[acceleration]', char: 'A', label: 'Acceleration' },
+  { token: '[crisis]',       char: 'C', label: 'Crisis' },
+  { token: '[hazard]',       char: 'H', label: 'Hazard' },
+  { token: '[per_hero]',     char: 'P', label: 'Per Hero' },
+  { token: '→',              char: 'E', label: 'Effect arrow' },
+];
+---
+
+<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+  {glyphs.map(({ token, char, label }) => (
+    <div class="flex items-center gap-3 rounded-lg border border-border/60 bg-card p-3">
+      <span class="marvel-glyph text-3xl text-foreground" aria-hidden="true">{char}</span>
+      <div class="min-w-0 space-y-0.5">
+        <div class="truncate text-sm font-medium text-foreground">{label}</div>
+        <code class="block truncate font-mono text-[11px] text-muted-foreground">{token}</code>
+      </div>
+    </div>
+  ))}
+</div>

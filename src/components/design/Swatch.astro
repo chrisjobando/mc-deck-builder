@@ -1,0 +1,29 @@
+---
+interface Props {
+  /** Tailwind class that paints the tile, e.g. "bg-primary" or "bg-aspect-aggression" */
+  className: string;
+  /** Display label, e.g. "Primary" or "Aggression" */
+  label: string;
+  /** Token name for reference, e.g. "--primary" or "--color-aspect-aggression" */
+  token?: string;
+  /** Optional: text color class for label overlay (when label is rendered on the swatch) */
+  textClassName?: string;
+}
+
+const { className, label, token, textClassName = 'text-foreground' } = Astro.props;
+---
+
+<div class="space-y-2">
+  <div
+    class:list={[
+      'h-20 w-full rounded-lg border border-border/60 shadow-sm',
+      className,
+    ]}
+  ></div>
+  <div class="space-y-0.5">
+    <div class:list={['text-sm font-medium', textClassName]}>{label}</div>
+    {token && (
+      <code class="block font-mono text-[11px] text-muted-foreground">{token}</code>
+    )}
+  </div>
+</div>
