@@ -2,23 +2,7 @@ import { getUserOwnedPacks } from './auth';
 import { prisma } from './db';
 import { ALWAYS_OWNED_CODES } from './packs';
 
-export { STATUS_LABEL, STATUS_COLOR } from './sessionConstants';
-
-export async function getSessionByCode(code: string) {
-  return prisma.session.findUnique({
-    where: { inviteCode: code },
-    include: {
-      participants: {
-        include: {
-          user: { select: { id: true, name: true, image: true } },
-          heroCard: { include: { identities: true } },
-          deck: { select: { id: true, name: true, cards: true } },
-        },
-        orderBy: { joinedAt: 'asc' },
-      },
-    },
-  });
-}
+export { STATUS_LABEL } from './sessionConstants';
 
 export type SessionWithParticipants = NonNullable<Awaited<ReturnType<typeof getSessionByCode>>>;
 
@@ -67,48 +51,6 @@ export async function computeSessionCollection(
   return { collectionCodes: [...packSet], cardQuantities };
 }
 
-/**
- * Get map of unique cards used by teammates (for conflict detection)
- */
-export function getTeammateUniqueCards(
-  session: SessionWithParticipants,
-  userId: string,
-  cardPool: CardPoolItem[]
-): Record<string, string[]> {
-  const result: Record<string, string[]> = {};
-  const cardById = new Map(cardPool.map(c => [c.id, c]));
-
-  for (const p of session.participants) {
-    if (p.userId === userId || !p.deck) continue;
-    const cards = p.deck.cards as { cardId: string; quantity: number }[];
-    for (const { cardId } of cards) {
-      const card = cardById.get(cardId);
-      if (card?.isUnique) {
-        result[cardId] ??= [];
-        result[cardId].push(p.user.name ?? 'Unknown');
-      }
-    }
-  }
-  return result;
-}
-
-/**
- * Format teammates for client display
- */
-export function formatTeammates(session: SessionWithParticipants, userId: string) {
-  return session.participants
-    .filter(p => p.userId !== userId)
-    .map(p => ({
-      userId: p.userId,
-      userName: p.user.name,
-      userImage: p.user.image,
-      heroName: p.heroCard?.name ?? null,
-      heroImageUrl: p.heroCard?.identities.find(i => i.identityType === 'hero')?.imageUrl ?? null,
-      aspects: p.aspects,
-      deckName: p.deck?.name ?? null,
-    }));
-}
-
 export function formatSessionForClient(
   session: NonNullable<Awaited<ReturnType<typeof getSessionByCode>>>
 ) {
@@ -135,6 +77,64 @@ export function formatSessionForClient(
       joinedAt: p.joinedAt.toISOString(),
     })),
   };
+}
+
+/**
+ * Format teammates for client display
+ */
+export function formatTeammates(session: SessionWithParticipants, userId: string) {
+  return session.participants
+    .filter(p => p.userId !== userId)
+    .map(p => ({
+      userId: p.userId,
+      userName: p.user.name,
+      userImage: p.user.image,
+      heroName: p.heroCard?.name ?? null,
+      heroImageUrl: p.heroCard?.identities.find(i => i.identityType === 'hero')?.imageUrl ?? null,
+      aspects: p.aspects,
+      deckName: p.deck?.name ?? null,
+    }));
+}
+
+export async function getSessionByCode(code: string) {
+  return prisma.session.findUnique({
+    where: { inviteCode: code },
+    include: {
+      participants: {
+        include: {
+          user: { select: { id: true, name: true, image: true } },
+          heroCard: { include: { identities: true } },
+          deck: { select: { id: true, name: true, cards: true } },
+        },
+        orderBy: { joinedAt: 'asc' },
+      },
+    },
+  });
+}
+
+/**
+ * Get map of unique cards used by teammates (for conflict detection)
+ */
+export function getTeammateUniqueCards(
+  session: SessionWithParticipants,
+  userId: string,
+  cardPool: CardPoolItem[]
+): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+  const cardById = new Map(cardPool.map(c => [c.id, c]));
+
+  for (const p of session.participants) {
+    if (p.userId === userId || !p.deck) continue;
+    const cards = p.deck.cards as { cardId: string; quantity: number }[];
+    for (const { cardId } of cards) {
+      const card = cardById.get(cardId);
+      if (card?.isUnique) {
+        result[cardId] ??= [];
+        result[cardId].push(p.user.name ?? 'Unknown');
+      }
+    }
+  }
+  return result;
 }
 
 export type LobbySession = ReturnType<typeof formatSessionForClient>;

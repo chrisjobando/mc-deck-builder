@@ -7,12 +7,12 @@ export async function getUser(context: APIContext) {
   return session?.user ?? null;
 }
 
-export async function requireAuth(context: APIContext) {
-  const user = await getUser(context);
-  if (!user) {
-    return context.redirect('/api/auth/signin');
-  }
-  return user;
+export async function getUserOwnedPacks(userId: string): Promise<string[]> {
+  const dbUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { ownedPacks: true },
+  });
+  return dbUser?.ownedPacks ?? [];
 }
 
 export async function requireAdmin(context: APIContext) {
@@ -27,10 +27,10 @@ export async function requireAdmin(context: APIContext) {
   return dbUser?.isAdmin ? user : null;
 }
 
-export async function getUserOwnedPacks(userId: string): Promise<string[]> {
-  const dbUser = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { ownedPacks: true },
-  });
-  return dbUser?.ownedPacks ?? [];
+export async function requireAuth(context: APIContext) {
+  const user = await getUser(context);
+  if (!user) {
+    return context.redirect('/api/auth/signin');
+  }
+  return user;
 }

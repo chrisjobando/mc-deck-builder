@@ -1,22 +1,6 @@
 import { prisma } from './db';
 export { heroSlug, WARLOCK_ID } from './utils';
 
-export async function loadEncounterSets() {
-  const rows = await prisma.encounterCard.findMany({
-    where: { heroId: null },
-    select: { setCode: true, setName: true, setType: true, packName: true },
-    orderBy: { setName: 'asc' },
-  });
-  const seen = new Set<string>();
-  const sets: { setCode: string; setName: string; setType: string; packName: string | null }[] = [];
-  for (const r of rows) {
-    if (!r.setName || seen.has(r.setCode)) continue;
-    seen.add(r.setCode);
-    sets.push({ setCode: r.setCode, setName: r.setName, setType: r.setType, packName: r.packName });
-  }
-  return sets;
-}
-
 export async function loadBuilderData() {
   const [heroes, rawCards, heroEncounterRows] = await Promise.all([
     prisma.heroCard.findMany({ orderBy: { name: 'asc' }, include: { identities: true } }),
@@ -140,4 +124,20 @@ export async function loadBuilderData() {
   ];
 
   return { heroOptions, cardPool };
+}
+
+export async function loadEncounterSets() {
+  const rows = await prisma.encounterCard.findMany({
+    where: { heroId: null },
+    select: { setCode: true, setName: true, setType: true, packName: true },
+    orderBy: { setName: 'asc' },
+  });
+  const seen = new Set<string>();
+  const sets: { setCode: string; setName: string; setType: string; packName: string | null }[] = [];
+  for (const r of rows) {
+    if (!r.setName || seen.has(r.setCode)) continue;
+    seen.add(r.setCode);
+    sets.push({ setCode: r.setCode, setName: r.setName, setType: r.setType, packName: r.packName });
+  }
+  return sets;
 }
