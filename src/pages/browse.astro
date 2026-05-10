@@ -220,42 +220,40 @@ const TYPE_FILTERS = [
 ];
 
 const ASPECT_FILTERS = [
-  { value: 'all',        label: 'All Aspects', color: 'bg-[var(--color-primary)]', hover: '' },
-  { value: 'Basic',      label: 'Basic',       color: 'bg-gray-600/50',  hover: 'hover:bg-gray-600' },
-  { value: 'Aggression', label: 'Aggression',  color: 'bg-red-600/50',   hover: 'hover:bg-red-600' },
-  { value: 'Justice',    label: 'Justice',     color: 'bg-yellow-600/50',hover: 'hover:bg-yellow-600' },
-  { value: 'Leadership', label: 'Leadership',  color: 'bg-blue-600/50',  hover: 'hover:bg-blue-600' },
-  { value: 'Pool',       label: 'Pool',        color: 'bg-pink-600/50',  hover: 'hover:bg-pink-600' },
-  { value: 'Protection', label: 'Protection',  color: 'bg-green-600/50', hover: 'hover:bg-green-600' },
+  { value: 'all',        label: 'All Aspects' },
+  { value: 'Basic',      label: 'Basic' },
+  { value: 'Aggression', label: 'Aggression' },
+  { value: 'Justice',    label: 'Justice' },
+  { value: 'Leadership', label: 'Leadership' },
+  { value: 'Pool',       label: 'Pool' },
+  { value: 'Protection', label: 'Protection' },
 ];
 ---
 
 <Layout title="Browse Cards">
-  <div class="mb-6">
-    <h1 class="text-3xl font-bold mb-4">Browse Cards</h1>
-    
+  <div>
+    <h1>Browse Cards</h1>
+
     <!-- Pack Filter -->
-    <details class="bg-[var(--color-surface)] rounded-lg p-4 mb-6" id="pack-filter-details">
-      <summary class="cursor-pointer font-semibold">Filter by Pack</summary>
-      <div class="mt-4 flex flex-wrap gap-2">
-        <button id="select-all-btn" class={`text-sm px-3 py-1 rounded inline-flex items-center justify-center leading-none hover:opacity-80 ${!isLoggedIn ? 'bg-[var(--color-primary)]' : 'bg-white/10'}`}>All</button>
-        {isLoggedIn && (
-          <button id="my-collection-btn" class="text-sm px-3 py-1 rounded inline-flex items-center justify-center leading-none bg-[var(--color-primary)] hover:opacity-80">My Collection</button>
-        )}
-        <button id="select-none-btn" class="text-sm px-3 py-1 rounded inline-flex items-center justify-center leading-none bg-white/10 hover:opacity-80">None</button>
+    <details id="pack-filter-details">
+      <summary>Filter by Pack</summary>
+      <div>
+        <button id="select-all-btn">All</button>
+        {isLoggedIn && <button id="my-collection-btn">My Collection</button>}
+        <button id="select-none-btn">None</button>
       </div>
-      <div class="mt-4 space-y-4">
+      <div>
         {CYCLES.map(cycle => {
           const playerPacks = cycle.packs.filter(p => p.type !== 'scenario' || packCodesInGrid.has(p.code));
           if (playerPacks.length === 0) return null;
           return (
             <div>
-              <h3 class="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mb-2">{cycle.name}</h3>
-              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1">
+              <h3>{cycle.name}</h3>
+              <div>
                 {playerPacks.map(pack => (
-                  <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-[var(--color-primary)]">
-                    <input type="checkbox" class="pack-filter h-3.5 w-3.5 accent-[var(--color-primary)]" value={pack.code} checked={!isLoggedIn || myCollectionSet.has(pack.code)} />
-                    <span class="truncate">{pack.name}</span>
+                  <label>
+                    <input type="checkbox" class="pack-filter" value={pack.code} checked={!isLoggedIn || myCollectionSet.has(pack.code)} />
+                    <span>{pack.name}</span>
                   </label>
                 ))}
               </div>
@@ -266,54 +264,37 @@ const ASPECT_FILTERS = [
     </details>
 
     <!-- Type Filter -->
-    <div class="flex flex-wrap gap-2 mb-6">
+    <div>
       {TYPE_FILTERS.map(({ value, label }) => (
-        <button
-          class={`type-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none ${value === 'all' ? 'active bg-[var(--color-primary)]' : 'bg-white/10 hover:bg-white/20'}`}
-          data-type={value}
-        >
-          {label}
-        </button>
+        <button class="type-filter" data-type={value}>{label}</button>
       ))}
     </div>
 
     <!-- Aspect Filter -->
-    <div class="flex flex-wrap gap-2 mb-6">
-      {ASPECT_FILTERS.map(({ value, label, color, hover }) => (
-        <button
-          class={`aspect-filter px-4 pt-1.5 pb-2.5 rounded-lg inline-flex items-center justify-center leading-none ${value === 'all' ? 'active' : ''} ${color} ${hover}`}
-          data-aspect={value}
-        >
-          {label}
-        </button>
+    <div>
+      {ASPECT_FILTERS.map(({ value, label }) => (
+        <button class="aspect-filter" data-aspect={value}>{label}</button>
       ))}
     </div>
 
     <!-- Search -->
-    <input 
-      type="text" 
-      id="search-input"
-      placeholder="Search cards..."
-      class="w-full md:w-96 px-4 py-2 rounded-lg bg-[var(--color-surface)] border border-white/10 focus:border-[var(--color-primary)] focus:outline-none"
-    />
+    <input type="text" id="search-input" placeholder="Search cards..." />
   </div>
 
   <!-- Card count -->
-  <p class="text-[var(--color-text-muted)] mb-4" id="card-count">
-    Showing {displayCards.length} cards
-  </p>
+  <p id="card-count">Showing {displayCards.length} cards</p>
 
   <!-- Empty state -->
-  <div id="empty-state" class="hidden py-16 text-center text-[var(--color-text-muted)]">
-    <p class="text-lg">No cards match your filters.</p>
-    <p class="mt-1 text-sm">Try adjusting your search or clearing filters.</p>
+  <div id="empty-state" class="hidden">
+    <p>No cards match your filters.</p>
+    <p>Try adjusting your search or clearing filters.</p>
   </div>
 
   <!-- Card Grid -->
-  <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4" id="card-grid">
+  <div id="card-grid">
     {displayCards.map(card => (
-      <div 
-        class="card-item bg-[var(--color-surface)] rounded-lg overflow-hidden hover:ring-2 hover:ring-[var(--color-primary)] transition-all cursor-pointer"
+      <div
+        class="card-item"
         data-packs={JSON.stringify(card.packs?.map((p: {code: string | null}) => p.code).filter(Boolean) || [])}
         data-pack={card.packCode}
         data-type={card.type}
@@ -323,66 +304,33 @@ const ASPECT_FILTERS = [
         data-alter-ego={card.type === 'hero' ? card.identities.filter((i: any) => i.identityType === 'alter_ego').map((i: any) => i.name.toLowerCase()).join('|||') : ''}
         data-id={card.id}
       >
-        <div class="aspect-[63/88] bg-black/50 relative overflow-hidden">
+        <div>
           {card.imageUrl ? (
             card.type === 'player_side_scheme' ? (
-              <img
-                src={card.imageUrl}
-                alt={card.name}
-                class="pss-img"
-                loading="lazy"
-              />
+              <img src={card.imageUrl} alt={card.name} class="pss-img" loading="lazy" />
             ) : (
-              <img
-                src={card.imageUrl}
-                alt={card.name}
-                class="w-full h-full object-cover"
-                loading="lazy"
-              />
+              <img src={card.imageUrl} alt={card.name} loading="lazy" />
             )
           ) : (
-            <div class="w-full h-full flex items-center justify-center text-[var(--color-text-muted)]">
-              No Image
-            </div>
+            <div>No Image</div>
           )}
-          {card.quantity > 1 && (
-            <span class="absolute top-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded inline-flex items-center justify-center leading-none">
-              x{card.quantity}
-            </span>
-          )}
-          {card.aspect && (
-            <span class={`absolute bottom-2 left-2 text-xs px-2 py-1 rounded inline-flex items-center justify-center leading-none ${
-              card.aspect === 'Aggression' ? 'bg-red-600' :
-              card.aspect === 'Justice' ? 'bg-yellow-600' :
-              card.aspect === 'Leadership' ? 'bg-blue-600' :
-              card.aspect === 'Protection' ? 'bg-green-600' :
-              card.aspect === 'Pool' ? 'bg-pink-600' :
-              'bg-gray-600'
-            }`}>
-              {card.aspect}
-            </span>
-          )}
-          {card.type === 'hero' && (
-            <span class="absolute bottom-2 left-2 text-xs px-2 py-1 rounded inline-flex items-center justify-center leading-none bg-purple-600">
-              Hero
-            </span>
-          )}
+          {card.quantity > 1 && <span>x{card.quantity}</span>}
+          {card.aspect && <span>{card.aspect}</span>}
+          {card.type === 'hero' && <span>Hero</span>}
         </div>
-        <div class="p-2">
-          <h3 class="font-semibold text-sm truncate" title={card.name}>{card.name}</h3>
-          <p class="text-xs text-[var(--color-text-muted)] truncate" title={card.packName}>
-            {card.packName}
-          </p>
+        <div>
+          <h3 title={card.name}>{card.name}</h3>
+          <p title={card.packName}>{card.packName}</p>
         </div>
       </div>
     ))}
   </div>
 
   <!-- Card Detail Modal -->
-  <div id="card-modal" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4">
-    <div class="bg-[var(--color-surface)] rounded-xl max-w-4xl w-full h-[75vh] overflow-hidden relative flex flex-col">
-      <button id="modal-close" class="absolute top-3 right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full text-2xl hover:bg-white/10 hover:text-[var(--color-primary)]">&times;</button>
-      <div class="p-4 sm:p-6 flex-1 min-h-0 overflow-y-auto flex flex-col" id="modal-content">
+  <div id="card-modal" class="hidden">
+    <div>
+      <button id="modal-close">&times;</button>
+      <div id="modal-content">
         <!-- Content injected by JS -->
       </div>
     </div>

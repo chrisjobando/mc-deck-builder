@@ -14,7 +14,6 @@ const decks = await prisma.deck.findMany({
   orderBy: { updatedAt: 'desc' },
 });
 
-// Resolve all card IDs referenced across decks in one query
 const allCardIds = [...new Set(
   decks.flatMap(d => (d.cards as { cardId: string }[]).map(c => c.cardId))
 )];
@@ -35,7 +34,6 @@ function cardCount(cards: unknown): number {
   if (!Array.isArray(cards)) return 0;
   return (cards as { quantity: number }[]).reduce((sum, c) => sum + (c.quantity ?? 0), 0);
 }
-
 
 const deckPreviews: DeckPreview[] = decks.map(deck => {
   const rawCards = deck.cards as { cardId: string; quantity: number }[];
@@ -86,16 +84,13 @@ const deckPreviews: DeckPreview[] = decks.map(deck => {
 ---
 
 <Layout title="My Decks">
-  <div class="mb-6 flex items-center justify-between">
+  <div>
     <div>
-      <h1 class="text-3xl font-bold">My Decks</h1>
-      <p class="mt-1 text-[var(--color-text-muted)]">{decks.length} deck{decks.length !== 1 ? 's' : ''} saved</p>
+      <h1>My Decks</h1>
+      <p>{decks.length} deck{decks.length !== 1 ? 's' : ''} saved</p>
     </div>
-    <a
-      href="/builder"
-      class="inline-flex items-center gap-2 rounded-lg border border-[var(--color-primary)] bg-[var(--color-primary)]/20 px-5 py-2.5 text-sm font-semibold text-[var(--color-primary)] transition hover:bg-[var(--color-primary)] hover:text-white"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+    <a href="/builder">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
         <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
       </svg>
       New Deck

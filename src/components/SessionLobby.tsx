@@ -36,8 +36,8 @@ const ASPECTS = ['Aggression', 'Justice', 'Leadership', 'Protection', 'Pool'] as
 
 function GhostSlot() {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-dashed border-white/10 p-4 text-sm text-gray-500">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/5 text-lg">
+    <div>
+      <div>
         ?
       </div>
       <span>Waiting for player…</span>
@@ -58,48 +58,44 @@ function ParticipantSlot({
 }) {
   return (
     <div
-      className={`flex items-center gap-3 rounded-xl border p-4 transition ${
-        participant.isLocked
-          ? 'border-green-500/30 bg-green-500/5'
-          : 'border-white/10 bg-white/5'
-      }`}
+
     >
       {participant.userImage ? (
         <img
           src={participant.userImage}
           alt={participant.userName ?? ''}
-          className="h-10 w-10 shrink-0 rounded-full object-cover"
+
         />
       ) : (
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-bold uppercase">
+        <div>
           {(participant.userName ?? '?')[0]}
         </div>
       )}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5 text-sm font-medium">
-          <span className="truncate">{participant.userName ?? 'Unknown'}</span>
+      <div>
+        <div>
+          <span>{participant.userName ?? 'Unknown'}</span>
           {isYou && (
-            <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-gray-400">
+            <span>
               you
             </span>
           )}
         </div>
         {showPick && participant.heroCardId ? (
-          <div className="mt-0.5 flex items-center gap-2">
+          <div>
             {participant.heroImageUrl && (
               <img
                 src={participant.heroImageUrl}
                 alt={participant.heroName ?? ''}
-                className="h-6 w-6 rounded-full object-cover object-top"
+
               />
             )}
-            <span className="truncate text-xs text-muted-foreground">
+            <span>
               {participant.heroName}
             </span>
             {participant.aspects.map((a) => (
               <span
                 key={a}
-                className="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
+
                 style={{ backgroundColor: `var(--color-aspect-${a.toLowerCase()})` }}
               >
                 {a[0]}
@@ -107,12 +103,12 @@ function ParticipantSlot({
             ))}
           </div>
         ) : showPick ? (
-          <div className="mt-0.5 text-xs text-gray-500">Choosing…</div>
+          <div>Choosing…</div>
         ) : null}
       </div>
       {participant.isLocked && (
-        <div className="shrink-0 text-green-400" title="Locked in">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+        <div title="Locked in">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
           </svg>
         </div>
@@ -151,14 +147,14 @@ function HeroPicker({
 
   return (
     <div>
-      <h3 className="mb-2 text-sm font-semibold text-muted-foreground">Choose Hero</h3>
+      <h3>Choose Hero</h3>
       <Input
         value={search}
         onChange={(e) => handleSearch(e.target.value)}
         placeholder="Search heroes…"
-        className="mb-3"
+
       />
-      <div className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto pr-1">
+      <div>
         {filtered.map((hero) => {
           const heroIdentity =
             hero.identities.find((i) => i.identityType === 'hero') ?? hero.identities[0];
@@ -170,28 +166,22 @@ function HeroPicker({
               onClick={() => !isDisabled && onSelect(hero)}
               disabled={isDisabled}
               title={isDisabled ? 'Taken by another player' : undefined}
-              className={`group relative overflow-hidden rounded-lg border text-left transition ${
-                isDisabled
-                  ? 'cursor-not-allowed border-white/5 opacity-30'
-                  : isSelected
-                    ? 'border-primary bg-primary/20 ring-1 ring-primary'
-                    : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
-              }`}
+
             >
               {heroIdentity?.imageUrl && (
                 <img
                   src={heroIdentity.imageUrl}
                   alt={hero.name}
-                  className="h-24 w-full object-cover object-top"
+
                 />
               )}
-              <div className="p-2">
-                <div className="truncate text-xs font-semibold">{hero.name}</div>
-                <div className="text-[10px] text-gray-500">{hero.health} HP</div>
+              <div>
+                <div>{hero.name}</div>
+                <div>{hero.health} HP</div>
               </div>
               {isDisabled && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                <div>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                   </svg>
                 </div>
@@ -200,7 +190,7 @@ function HeroPicker({
           );
         })}
         {filtered.length === 0 && (
-          <p className="col-span-2 py-4 text-center text-sm text-gray-500">No heroes found</p>
+          <p>No heroes found</p>
         )}
       </div>
     </div>
@@ -220,10 +210,10 @@ function AspectPicker({
 }) {
   return (
     <div>
-      <h3 className="mb-2 text-sm font-semibold text-muted-foreground">
+      <h3>
         Aspects {isMultiAspect ? '(pick 2)' : '(pick 1)'}
       </h3>
-      <div className="grid grid-cols-3 gap-2">
+      <div>
         {ASPECTS.map((aspect) => (
           <AspectButton
             key={aspect}
@@ -432,7 +422,7 @@ export default function SessionLobby() {
 
   if (!session) {
     return (
-      <div className="flex h-64 items-center justify-center text-gray-500">
+      <div>
         Loading session…
       </div>
     );
@@ -456,19 +446,19 @@ export default function SessionLobby() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-6 flex flex-wrap items-center gap-3">
-        <a href="/sessions" className="text-sm text-muted-foreground hover:text-white">
+      <div>
+        <a href="/sessions">
           ← Sessions
         </a>
-        <h1 className="text-2xl font-bold">{session.name}</h1>
+        <h1>{session.name}</h1>
         <StatusBadge status={session.status} />
       </div>
 
       {/* ── Phase 1: Lobby ── */}
       {session.status === 'draft' && (
-        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-          <div className="space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        <div>
+          <div>
+            <h2>
               Players ({session.participants.length}/4)
             </h2>
             {slots.map((_, i) => {
@@ -480,24 +470,24 @@ export default function SessionLobby() {
             })}
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-white/5 p-6">
-            <h2 className="mb-2 text-base font-semibold">Waiting for players</h2>
-            <p className="mb-4 text-sm text-muted-foreground">
+          <div>
+            <h2>Waiting for players</h2>
+            <p>
               Share your invite code so others can join. Once everyone's in, start the draft.
             </p>
-            <div className="mb-4 flex items-center gap-2 rounded-lg bg-black/20 px-3 py-2">
-              <span className="font-mono text-xl font-bold tracking-widest text-primary">
+            <div>
+              <span>
                 {session.inviteCode}
               </span>
               <button
                 onClick={copyInviteCode}
-                className="ml-auto text-xs text-muted-foreground hover:text-white"
+
               >
                 {copied ? 'Copied!' : 'Copy'}
               </button>
             </div>
             {isHost && (
-              <Button onClick={() => handleStatusChange('drafting')} className="w-full">
+              <Button onClick={() => handleStatusChange('drafting')}>
                 Start Draft →
               </Button>
             )}
@@ -506,7 +496,7 @@ export default function SessionLobby() {
                 variant="outline"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="mt-2 w-full border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20"
+
               >
                 {deleting ? 'Deleting…' : 'Delete Session'}
               </Button>
@@ -517,10 +507,10 @@ export default function SessionLobby() {
 
       {/* ── Phase 2: Draft ── */}
       {session.status === 'drafting' && (
-        <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+        <div>
           {/* Roster */}
-          <div className="space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          <div>
+            <h2>
               Players ({session.participants.filter((p) => p.isLocked).length}/{session.participants.length} locked)
             </h2>
             {slots.map((_, i) => {
@@ -532,7 +522,7 @@ export default function SessionLobby() {
             })}
 
             {isHost && (
-              <div className="flex gap-2 pt-2">
+              <div>
                 <Button variant="outline" onClick={() => handleStatusChange('draft')}>
                   ← Back to Lobby
                 </Button>
@@ -549,8 +539,8 @@ export default function SessionLobby() {
 
           {/* My pick panel — hidden once locked */}
           {!myLocked ? (
-            <div className="space-y-5 rounded-xl border border-white/10 bg-white/5 p-5">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <div>
+              <h2>
                 Your Pick
               </h2>
               <HeroPicker
@@ -569,27 +559,27 @@ export default function SessionLobby() {
               <Button
                 onClick={handleLockIn}
                 disabled={!myHeroId || myAspects.length === 0 || locking}
-                className="w-full bg-green-600 hover:bg-green-500"
+
               >
                 {locking ? 'Locking in…' : 'Lock In'}
               </Button>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-green-500/30 bg-green-500/5 p-8 text-center">
-              <div className="text-3xl text-green-400">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" viewBox="0 0 20 20" fill="currentColor">
+            <div>
+              <div>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                 </svg>
               </div>
               <div>
-                <div className="font-semibold text-green-300">Locked in!</div>
-                <div className="mt-1 text-sm text-gray-500">
+                <div>Locked in!</div>
+                <div>
                   {myHero?.name}
                   {myAspects.length > 0 && ` · ${myAspects.join(', ')}`}
                 </div>
               </div>
-              <p className="text-xs text-gray-600">Waiting for others…</p>
-              <Button variant="outline" onClick={handleUnlock} disabled={unlocking} className="mt-2">
+              <p>Waiting for others…</p>
+              <Button variant="outline" onClick={handleUnlock} disabled={unlocking}>
                 {unlocking ? 'Unlocking…' : 'Change Selection'}
               </Button>
             </div>
@@ -599,45 +589,45 @@ export default function SessionLobby() {
 
       {/* ── Phase 3: Build ── */}
       {session.status === 'building' && (
-        <div className="space-y-6">
-          <p className="text-muted-foreground">
+        <div>
+          <p>
             Everyone's locked in — time to build! Open the builder with your hero pre-loaded.
           </p>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
             {session.participants.map((p) => {
               const isYou = p.userId === meta.userId;
               const url = builderUrl(p);
               return (
                 <div
                   key={p.id}
-                  className={`rounded-xl border p-5 ${isYou ? 'border-primary/40 bg-primary/5' : 'border-white/10 bg-white/5'}`}
+
                 >
-                  <div className="mb-3 flex items-center gap-2">
+                  <div>
                     {p.userImage ? (
-                      <img src={p.userImage} alt={p.userName ?? ''} className="h-8 w-8 rounded-full object-cover" />
+                      <img src={p.userImage} alt={p.userName ?? ''} />
                     ) : (
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs font-bold uppercase">
+                      <div>
                         {(p.userName ?? '?')[0]}
                       </div>
                     )}
-                    <span className="truncate text-sm font-medium">
+                    <span>
                       {p.userName ?? 'Unknown'}
-                      {isYou && <span className="ml-1 text-xs text-gray-500">(you)</span>}
+                      {isYou && <span>(you)</span>}
                     </span>
                   </div>
                   {p.heroImageUrl && (
                     <img
                       src={p.heroImageUrl}
                       alt={p.heroName ?? ''}
-                      className="mb-3 h-32 w-full rounded-lg object-cover object-top"
+
                     />
                   )}
-                  <div className="mb-1 font-semibold">{p.heroName}</div>
-                  <div className="mb-3 flex flex-wrap gap-1">
+                  <div>{p.heroName}</div>
+                  <div>
                     {p.aspects.map((a) => (
                       <span
                         key={a}
-                        className="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
+
                         style={{ backgroundColor: `var(--color-aspect-${a.toLowerCase()})` }}
                       >
                         {a}
@@ -645,7 +635,7 @@ export default function SessionLobby() {
                     ))}
                   </div>
                   {isYou && url && (
-                    <Button asChild className="w-full">
+                    <Button asChild>
                       <a href={url}>Build Deck →</a>
                     </Button>
                   )}
@@ -655,7 +645,7 @@ export default function SessionLobby() {
           </div>
 
           {isHost && (
-            <div className="flex gap-2">
+            <div>
               <Button variant="outline" onClick={() => handleStatusChange('drafting')}>
                 ← Back to Draft
               </Button>
@@ -669,33 +659,33 @@ export default function SessionLobby() {
 
       {/* ── Completed ── */}
       {session.status === 'completed' && (
-        <div className="space-y-6">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-6 text-center">
-            <div className="mb-2 text-lg font-semibold">Session Complete</div>
-            <p className="text-sm text-muted-foreground">Good luck out there!</p>
+        <div>
+          <div>
+            <div>Session Complete</div>
+            <p>Good luck out there!</p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
             {session.participants.map((p) => (
-              <div key={p.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
-                <div className="mb-2 flex items-center gap-2">
+              <div key={p.id}>
+                <div>
                   {p.userImage ? (
-                    <img src={p.userImage} alt={p.userName ?? ''} className="h-7 w-7 rounded-full object-cover" />
+                    <img src={p.userImage} alt={p.userName ?? ''} />
                   ) : (
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs font-bold uppercase">
+                    <div>
                       {(p.userName ?? '?')[0]}
                     </div>
                   )}
-                  <span className="truncate text-sm font-medium">{p.userName}</span>
+                  <span>{p.userName}</span>
                 </div>
                 {p.heroImageUrl && (
-                  <img src={p.heroImageUrl} alt={p.heroName ?? ''} className="mb-2 h-24 w-full rounded object-cover object-top" />
+                  <img src={p.heroImageUrl} alt={p.heroName ?? ''} />
                 )}
-                <div className="text-sm font-semibold">{p.heroName}</div>
-                <div className="mt-1 flex flex-wrap gap-1">
+                <div>{p.heroName}</div>
+                <div>
                   {p.aspects.map((a) => (
                     <span
                       key={a}
-                      className="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
+
                       style={{ backgroundColor: `var(--color-aspect-${a.toLowerCase()})` }}
                     >
                       {a}
@@ -706,7 +696,7 @@ export default function SessionLobby() {
             ))}
           </div>
           {isHost && (
-            <div className="flex gap-2">
+            <div>
               <Button variant="outline" onClick={() => handleStatusChange('building')}>
                 ← Reopen Session
               </Button>
@@ -714,7 +704,7 @@ export default function SessionLobby() {
                 variant="outline"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20"
+
               >
                 {deleting ? 'Deleting…' : 'Delete Session'}
               </Button>

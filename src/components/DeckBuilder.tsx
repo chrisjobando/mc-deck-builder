@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { AspectBadge, AspectButton, CardTypeBadge, DeckProgress } from '@/components/ui/marvel';
-import { ASPECT_TEXT_COLOR, COST_BUCKETS, formatType, TYPE_COLOR } from '@/lib/cardFormatting';
+import { COST_BUCKETS, formatType } from '@/lib/cardFormatting';
 import { heroSlug, WARLOCK_ID } from '@/lib/utils';
 import CardModal from './CardModal';
 
@@ -924,18 +924,18 @@ export default function DeckBuilder() {
   if (step === 'hero') {
     return (
       <div>
-        <h1 className="mb-1 text-3xl font-bold">Build a Deck</h1>
-        <p className="mb-6 text-muted-foreground">Step 1 of 3 — Choose your hero</p>
-        <div className="mb-6 flex items-center gap-3">
+        <h1>Build a Deck</h1>
+        <p>Step 1 of 3 — Choose your hero</p>
+        <div>
           <Input
             placeholder="Search heroes..."
             value={heroSearch}
             onChange={e => setHeroSearch(e.target.value)}
-            className="w-full max-w-sm"
+
           />
           <OwnedOnlyButton active={collectionOnly} onClick={() => setCollectionOnly(v => !v)} />
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+        <div>
           {filteredHeroes.map(hero => {
             const primary = getHeroIdentity(hero);
             const alterEgo = hero.identities.find(i => i.identityType === 'alter_ego');
@@ -943,25 +943,25 @@ export default function DeckBuilder() {
               <button
                 key={hero.id}
                 onClick={() => selectHero(hero)}
-                className="group flex flex-col overflow-hidden rounded-lg border border-white/10 bg-card transition hover:border-primary hover:shadow-lg"
+
               >
-                <div className="relative aspect-[63/88] w-full overflow-hidden bg-black/30">
+                <div>
                   {primary?.imageUrl ? (
                     <img
                       src={primary.imageUrl}
                       alt={hero.name}
-                      className="h-full w-full object-cover transition group-hover:scale-105"
+
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                    <div>
                       No Image
                     </div>
                   )}
                 </div>
-                <div className="p-2">
-                  <p className="truncate text-xs font-semibold">{hero.name}</p>
+                <div>
+                  <p>{hero.name}</p>
                   {alterEgo && (
-                    <p className="truncate text-[10px] text-muted-foreground">{alterEgo.name}</p>
+                    <p>{alterEgo.name}</p>
                   )}
                 </div>
               </button>
@@ -980,24 +980,24 @@ export default function DeckBuilder() {
     const aspectRecs = selectedHero ? getAspectRecommendations(selectedHero) : null;
     const maxRecScore = aspectRecs ? Math.max(...Object.values(aspectRecs).map(r => r.score)) : 0;
     return (
-      <div className="mx-auto max-w-lg">
-        <Button variant="ghost" size="sm" onClick={() => { window.location.href = '/builder'; }} className="mb-6 -ml-3">
+      <div>
+        <Button variant="ghost" size="sm" onClick={() => { window.location.href = '/builder'; }}>
           ← Back
         </Button>
-        <h1 className="mb-1 text-3xl font-bold">Build a Deck</h1>
-        <div className="mb-1 flex items-center justify-between">
-          <p className="text-muted-foreground">
+        <h1>Build a Deck</h1>
+        <div>
+          <p>
             Step 2 of 3 — Choose your aspect{isMultiAspect ? 's' : ''}
           </p>
           <OwnedOnlyButton active={collectionOnly} onClick={() => setCollectionOnly(v => !v)} />
         </div>
-        <p className="mb-6 text-sm text-muted-foreground">
-          Building with <strong className="text-foreground">{selectedHero?.name}</strong>.{' '}
+        <p>
+          Building with <strong>{selectedHero?.name}</strong>.{' '}
           {isMultiAspect
             ? 'Pick 2 aspects — Basic is always included.'
             : 'Pick 1 aspect — Basic is always included.'}
         </p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div>
           {visibleAspects.map(aspect => {
             const isSelected = selectedAspects.includes(aspect);
             const rec = aspectRecs?.[aspect];
@@ -1014,7 +1014,7 @@ export default function DeckBuilder() {
             );
           })}
         </div>
-        <p className="mt-4 text-sm text-muted-foreground">
+        <p>
           Selected: Basic{selectedAspects.length > 0 ? `, ${selectedAspects.join(', ')}` : ''}
         </p>
         <Button
@@ -1025,7 +1025,7 @@ export default function DeckBuilder() {
             window.location.href = `/builder/${slug}/${aspectsParam}`;
           }}
           disabled={selectedAspects.length !== (isMultiAspect ? 2 : 1)}
-          className="mt-6 w-full"
+
         >
           Continue to Deck Builder
         </Button>
@@ -1076,10 +1076,10 @@ export default function DeckBuilder() {
     <div>
       {/* Session Header */}
       {sessionContext && (
-        <div className="mb-4">
+        <div>
           <a 
             href={`/sessions/${sessionContext.code}`} 
-            className="text-sm text-muted-foreground hover:text-white"
+
           >
             ← Back to {sessionContext.name}
           </a>
@@ -1087,18 +1087,18 @@ export default function DeckBuilder() {
       )}
       
       {/* Header */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+      <div>
         <div>
-          <h1 className="text-2xl font-bold">{selectedHero?.name}</h1>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">Basic</span>
+          <h1>{selectedHero?.name}</h1>
+          <div>
+            <span>Basic</span>
             {selectedAspects.map(a => (
-              <AspectBadge key={a} aspect={a} className="rounded text-xs" />
+              <AspectBadge key={a} aspect={a} />
             ))}
           </div>
         </div>
         {!sessionContext && (
-          <div className="flex items-center gap-3">
+          <div>
             <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
               Import from MarvelCDB
             </Button>
@@ -1119,113 +1119,109 @@ export default function DeckBuilder() {
 
       {/* Teammates Panel (Session Mode) */}
       {sessionContext && sessionContext.teammates.length > 0 && (
-        <div className="mb-4 rounded-lg border border-white/10 bg-card p-4">
-          <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
+        <div>
+          <h3>
             Teammates
           </h3>
-          <div className="flex flex-wrap gap-3">
+          <div>
             {sessionContext.teammates.map((t) => (
-              <div key={t.userId} className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2">
+              <div key={t.userId}>
                 {t.userImage ? (
-                  <img src={t.userImage} alt={t.userName ?? ''} className="h-8 w-8 rounded-full object-cover" />
+                  <img src={t.userImage} alt={t.userName ?? ''} />
                 ) : (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs font-bold uppercase">
+                  <div>
                     {(t.userName ?? '?')[0]}
                   </div>
                 )}
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="truncate text-sm font-medium">{t.userName}</span>
+                <div>
+                  <div>
+                    <span>{t.userName}</span>
                     {t.aspects.map(a => (
-                      <span key={a} className="rounded px-1 py-0.5 text-[10px] text-white" style={{ backgroundColor: `var(--color-aspect-${a.toLowerCase()})` }}>
+                      <span key={a} style={{ backgroundColor: `var(--color-aspect-${a.toLowerCase()})` }}>
                         {a[0]}
                       </span>
                     ))}
                   </div>
-                  <div className="truncate text-xs text-muted-foreground">
+                  <div>
                     {t.heroName}
-                    {t.deckName && <span className="ml-1 text-green-400">✓</span>}
+                    {t.deckName && <span>✓</span>}
                   </div>
                 </div>
               </div>
             ))}
           </div>
           {sessionContext.collectionMode !== 'single' && (
-            <p className="mt-2 text-[10px] text-muted-foreground">
+            <p>
               Collection: {sessionContext.collectionMode === 'combined' ? 'Union of all players' : 'Summed duplicates'}
             </p>
           )}
         </div>
       )}
 
-      <div className="mb-3 flex rounded-lg border border-border lg:hidden">
+      <div>
         <button
           onClick={() => setMobileTab('cards')}
-          className={`flex-1 rounded-l-lg py-3 text-sm font-medium transition ${mobileTab === 'cards' ? 'bg-primary' : 'bg-card'}`}
+
         >
           Cards
         </button>
         <button
           onClick={() => setMobileTab('deck')}
-          className={`flex-1 rounded-r-lg py-3 text-sm font-medium transition ${mobileTab === 'deck' ? 'bg-primary' : 'bg-card'}`}
+
         >
           Deck ({totalDeckSize} / 40)
         </button>
       </div>
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
+      <div>
         {/* ── Left: Card Pool ── */}
-        <div className={`${mobileTab === 'deck' ? 'hidden lg:flex' : 'flex'} min-w-0 flex-col gap-3`} style={{ flex: '0 1 56rem' }}>
-          <div className="flex flex-wrap items-center gap-2">
+        <div style={{ flex: '0 1 56rem' }}>
+          <div>
             <Input
               placeholder="Search cards..."
               value={cardSearch}
               onChange={e => setCardSearch(e.target.value)}
-              className="flex-1"
+
             />
             <OwnedOnlyButton active={collectionOnly} onClick={() => setCollectionOnly(v => !v)} />
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-1.5">
-            <div className="flex flex-wrap gap-1.5">
+          <div>
+            <div>
               {TYPE_FILTERS.map(f => (
                 <button
                   key={f.value}
                   onClick={() => setTypeFilter(f.value)}
-                  className={`rounded px-2.5 py-1.5 text-xs font-medium transition ${
-                    typeFilter === f.value
-                      ? 'bg-primary text-white'
-                      : 'bg-white/5 hover:bg-white/10'
-                  }`}
+
                 >
                   {f.label}
                 </button>
               ))}
             </div>
-            <span className="text-xs text-muted-foreground">
+            <span>
               {sortedPool.length} card{sortedPool.length !== 1 ? 's' : ''}
             </span>
           </div>
 
-          <div className="overflow-hidden rounded border border-white/10">
-            <div ref={cardPoolRef} className="max-h-[calc(100vh-300px)] overflow-y-auto pr-1">
+          <div>
+            <div ref={cardPoolRef}>
               {sortedPool.length === 0 ? (
-                <p className="p-4 text-center text-sm text-muted-foreground">
+                <p>
                   No cards found
                 </p>
               ) : (
-                <table className="w-full table-fixed text-sm">
+                <table>
                   <colgroup>
                     <col />
-                    <col className="w-12" />
-                    <col className="w-12" />
-                    <col className="w-20" />
+                    <col />
+                    <col />
+                    <col />
                   </colgroup>
-                  <thead className="sticky top-0 bg-card text-xs text-muted-foreground">
+                  <thead>
                     <tr>
-                      <th className="px-3 py-2 text-left">Card</th>
-                      <th className="px-2 py-2 text-center">Cost</th>
-                      <th className="px-2 py-2 text-center">Left</th>
-                      <th className="px-2 py-2 text-right"></th>
+                      <th>Card</th>
+                      <th>Cost</th>
+                      <th>Left</th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1238,43 +1234,43 @@ export default function DeckBuilder() {
                       const claimedBy = isClaimedByTeammate(card);
                       const isBlocked = claimedBy && claimedBy.length > 0 && inDeck === 0;
                       return (
-                        <tr key={card.id} className={`border-t border-white/5 ${inDeck > 0 ? 'bg-primary/10 hover:bg-primary/15' : isBlocked ? 'bg-red-500/5' : 'hover:bg-white/[0.03]'}`}>
-                          <td className={`py-2 ${inDeck > 0 ? 'border-l-2 border-primary pl-[10px] pr-3' : 'px-3'}`}>
-                            <div className="flex items-center gap-2">
+                        <tr key={card.id}>
+                          <td>
+                            <div>
                               {card.aspect && (
                                 <span
-                                  className="inline-block h-2 w-2 flex-shrink-0 rounded-full"
+
                                   style={{ backgroundColor: `var(--color-aspect-dot-${card.aspect.toLowerCase()})` }}
                                 />
                               )}
                               <div>
                                 <button
                                   onClick={() => setModalCard(card)}
-                                  className={`hover:underline ${card.heroId ? 'text-yellow-300' : ''} ${isBlocked ? 'text-red-300' : ''}`}
+
                                 >
                                   {card.name}
                                 </button>
                                 {card.isUnique && (
-                                  <span className="marvel-glyph ml-1 text-xs text-yellow-400">S</span>
+                                  <span className="marvel-glyph">S</span>
                                 )}
-                                <CardTypeBadge type={card.type} className="ml-1.5 text-[10px] px-1 py-0" />
+                                <CardTypeBadge type={card.type} />
                                 {claimedBy && claimedBy.length > 0 && (
-                                  <span className="ml-1.5 text-[10px] text-red-400" title={`Used by ${claimedBy.join(', ')}`}>
+                                  <span title={`Used by ${claimedBy.join(', ')}`}>
                                     ({claimedBy.join(', ')})
                                   </span>
                                 )}
                               </div>
                             </div>
                             {card.traits && (
-                              <p className="mt-0.5 pl-4 text-[10px] text-muted-foreground">
+                              <p>
                                 {card.traits}
                               </p>
                             )}
                           </td>
-                          <td className="px-2 py-2 text-center text-xs text-muted-foreground">
+                          <td>
                             {card.cost ?? '—'}
                           </td>
-                          <td className="px-2 py-2 text-center text-xs">
+                          <td>
                             {(() => {
                               const remaining = effectiveQty - inDeck;
                               const cls = remaining === 0
@@ -1282,21 +1278,21 @@ export default function DeckBuilder() {
                                 : remaining < effectiveQty
                                   ? 'text-amber-400'
                                   : 'text-muted-foreground';
-                              return <span className={cls}>{remaining}</span>;
+                              return <span>{remaining}</span>;
                             })()}
                           </td>
-                          <td className="px-2 py-2 text-right">
-                            <div className="flex items-center justify-end gap-1">
+                          <td>
+                            <div>
                               {inDeck > 0 && (
                                 <button
                                   onClick={() => removeCard(card.id)}
-                                  className="flex h-7 w-7 items-center justify-center rounded bg-white/10 hover:bg-white/20"
+
                                 >
                                   −
                                 </button>
                               )}
                               <span
-                                className={`w-4 text-center text-xs ${inDeck > 0 ? 'font-bold text-primary' : ''}`}
+
                               >
                                 {inDeck > 0 ? inDeck : ''}
                               </span>
@@ -1304,7 +1300,7 @@ export default function DeckBuilder() {
                                 onClick={() => addCard(card)}
                                 disabled={atLimit || atDeckCap || !!isBlocked}
                                 title={isBlocked ? `Used by ${claimedBy?.join(', ')}` : undefined}
-                                className="flex h-6 w-6 items-center justify-center rounded bg-white/10 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-30"
+
                               >
                                 +
                               </button>
@@ -1320,15 +1316,15 @@ export default function DeckBuilder() {
           </div>
 
           {/* Composition */}
-          <div className="rounded-lg border border-white/10 bg-card p-4">
-            <h2 className="mb-3 text-sm font-semibold">Composition</h2>
+          <div>
+            <h2>Composition</h2>
 
             {/* Segmented type bar */}
-            <div className="mb-2 flex h-2 w-full overflow-hidden rounded-full">
+            <div>
               {typeBreakdown.map(([type, count]) => (
                 <div
                   key={type}
-                  className={`h-full transition-all ${TYPE_COLOR[type] ?? 'bg-gray-500'}`}
+
                   style={{ width: `${(count / totalDeckSize) * 100}%` }}
                   title={`${formatType(type)}: ${count}`}
                 />
@@ -1336,33 +1332,33 @@ export default function DeckBuilder() {
             </div>
 
             {/* Type pills */}
-            <div className="mb-4 flex flex-wrap gap-x-3 gap-y-1">
+            <div>
               {typeBreakdown.map(([type, count]) => (
-                <span key={type} className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                  <span className={`inline-block h-2 w-2 flex-shrink-0 rounded-full ${TYPE_COLOR[type] ?? 'bg-gray-500'}`} />
+                <span key={type}>
+                  <span />
                   {formatType(type)} {count}
                 </span>
               ))}
             </div>
 
             {/* Cost curve */}
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Cost Curve</p>
-            <div className="flex gap-1">
+            <p>Cost Curve</p>
+            <div>
               {COST_BUCKETS.map(cost => {
                 const count = costBreakdown[cost];
                 const barPx = count > 0 ? Math.max(4, Math.round((count / maxCostCount) * 36)) : 0;
                 return (
-                  <div key={cost} className="flex flex-1 flex-col items-center">
-                    <span className={`mb-0.5 text-[10px] leading-none ${count > 0 ? '' : 'invisible'}`}>
+                  <div key={cost}>
+                    <span>
                       {count}
                     </span>
-                    <div className="flex h-9 w-full items-end">
+                    <div>
                       <div
-                        className="w-full rounded-t-sm bg-primary transition-all duration-300"
+
                         style={{ height: `${barPx}px` }}
                       />
                     </div>
-                    <span className="mt-0.5 text-[10px] leading-none text-muted-foreground">
+                    <span>
                       {cost === 4 ? '4+' : cost}
                     </span>
                   </div>
@@ -1370,20 +1366,20 @@ export default function DeckBuilder() {
               })}
             </div>
             {/* Curve label */}
-            <div className={`mt-3 rounded px-3 py-2 text-xs ${curveSummary.bgColor}`}>
-              <span className={`font-semibold ${curveSummary.color}`}>{curveSummary.label}</span>
+            <div>
+              <span>{curveSummary.label}</span>
               {curveSummary.warning && (
-                <p className="mt-0.5 text-orange-300">{curveSummary.warning}</p>
+                <p>{curveSummary.warning}</p>
               )}
             </div>
           </div>
 
           {/* AI Analysis */}
-          <div className="rounded-lg border border-white/10 bg-card p-4">
-            <h2 className="mb-3 flex items-center gap-1.5 font-semibold">
+          <div>
+            <h2>
               <span>✨</span> AI Analysis
             </h2>
-            <div className="mb-3 flex flex-wrap gap-1.5">
+            <div>
               {SUGGESTION_PILLS.filter(pill => !('showIf' in pill) || pill.showIf(totalDeckSize)).map(pill => {
                 const isActive = activePromptFocus === pill.focus && (aiSuggestions || aiLoading);
                 return (
@@ -1391,64 +1387,56 @@ export default function DeckBuilder() {
                     key={pill.label}
                     onClick={() => requestAiSuggestions(pill.focus)}
                     disabled={aiLoading}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                      isActive
-                        ? 'bg-purple-600 text-white ring-2 ring-purple-400'
-                        : 'border border-white/10 text-muted-foreground hover:border-white/20 hover:text-foreground'
-                    }`}
+
                   >
                     {pill.label}
                   </button>
                 );
               })}
             </div>
-            <div className="min-h-[3rem]">
+            <div>
               {aiLoading && !aiSuggestions && (
-                <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
-                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-purple-400 border-t-transparent" />
+                <div>
+                  <span />
                   Analyzing your deck...
                 </div>
               )}
               {aiSuggestions && (
                 <div
-                  className="text-xs leading-relaxed [&_strong]:font-semibold [&_strong]:text-yellow-300 [&_ul]:list-none [&_ul]:pl-0 [&_li]:relative [&_li]:pl-4 [&_li]:before:absolute [&_li]:before:left-0 [&_li]:before:content-['•'] [&_li]:before:text-yellow-300"
+
                   dangerouslySetInnerHTML={{ __html: formatAiResponse(aiSuggestions) }}
                 />
               )}
               {!aiLoading && !aiSuggestions && (
-                <p className="text-xs text-muted-foreground">Pick a focus above to get AI-powered deck suggestions.</p>
+                <p>Pick a focus above to get AI-powered deck suggestions.</p>
               )}
             </div>
           </div>
         </div>
 
         {/* ── Right: Deck Panel ── */}
-        <div className={`${mobileTab === 'cards' ? 'hidden lg:flex' : 'flex'} w-full flex-col gap-3 lg:w-96 lg:flex-shrink-0`}>
+        <div>
           {/* Hero card */}
           {selectedHero && (() => {
             const identities = sortedIdentities(selectedHero);
             const idx = Math.min(heroIdentityIndex, identities.length - 1);
             const shownIdentity = identities[idx];
             return (
-              <div className="overflow-hidden rounded-lg border border-white/10">
-                <div className="relative aspect-[63/88] w-full bg-black/30">
+              <div>
+                <div>
                   {shownIdentity?.imageUrl ? (
-                    <img src={shownIdentity.imageUrl} alt={shownIdentity.name} className="h-full w-full object-cover" />
+                    <img src={shownIdentity.imageUrl} alt={shownIdentity.name} />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-xs text-muted-foreground">No Image</div>
+                    <div>No Image</div>
                   )}
                 </div>
                 {identities.length > 1 && (
-                  <div className="flex flex-wrap gap-1.5 bg-card px-3 py-2">
+                  <div>
                     {identities.map((id, i) => (
                       <button
                         key={id.identityType}
                         onClick={() => setHeroIdentityIndex(i)}
-                        className={`rounded px-2 py-1 text-xs font-medium transition ${
-                          i === idx
-                            ? 'bg-primary text-white'
-                            : 'bg-white/10 text-muted-foreground hover:bg-white/20 hover:text-foreground'
-                        }`}
+
                       >
                         {identityLabel(id.identityType)}
                       </button>
@@ -1460,60 +1448,54 @@ export default function DeckBuilder() {
           })()}
           {/* Hero Overview */}
           {heroSummary && selectedHero && shownIdentityForStats && (
-            <div className="rounded-lg border border-white/10 bg-card p-3">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <div>
+              <p>
                 {identityLabel(shownIdentityForStats.identityType)} Overview
               </p>
-              <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
-                {shownIdentityForStats.attack != null && <span>ATK <strong className="text-white">{shownIdentityForStats.attack}</strong></span>}
-                {shownIdentityForStats.thwart != null && <span>THW <strong className="text-white">{shownIdentityForStats.thwart}</strong></span>}
-                {shownIdentityForStats.defense != null && <span>DEF <strong className="text-white">{shownIdentityForStats.defense}</strong></span>}
-                {shownIdentityForStats.recover != null && <span>REC <strong className="text-white">{shownIdentityForStats.recover}</strong></span>}
-                {shownIdentityForStats.handSize != null && <span>HAND <strong className="text-white">{shownIdentityForStats.handSize}</strong></span>}
-                <span>HP <strong className="text-white">{selectedHero.health}</strong></span>
+              <div>
+                {shownIdentityForStats.attack != null && <span>ATK <strong>{shownIdentityForStats.attack}</strong></span>}
+                {shownIdentityForStats.thwart != null && <span>THW <strong>{shownIdentityForStats.thwart}</strong></span>}
+                {shownIdentityForStats.defense != null && <span>DEF <strong>{shownIdentityForStats.defense}</strong></span>}
+                {shownIdentityForStats.recover != null && <span>REC <strong>{shownIdentityForStats.recover}</strong></span>}
+                {shownIdentityForStats.handSize != null && <span>HAND <strong>{shownIdentityForStats.handSize}</strong></span>}
+                <span>HP <strong>{selectedHero.health}</strong></span>
               </div>
               {(heroSummary.strengths.length > 0 || heroSummary.weaknesses.length > 0) && (
-                <div className="mb-2 flex flex-wrap gap-1">
+                <div>
                   {heroSummary.strengths.map(s => (
-                    <span key={s} className="rounded bg-green-900/50 px-1.5 py-0.5 text-[10px] text-green-300">+ {s}</span>
+                    <span key={s}>+ {s}</span>
                   ))}
                   {heroSummary.weaknesses.map(w => (
-                    <span key={w} className="rounded bg-red-900/50 px-1.5 py-0.5 text-[10px] text-red-300">− {w}</span>
+                    <span key={w}>− {w}</span>
                   ))}
                 </div>
               )}
-              <p className="text-[10px] text-muted-foreground">{heroSummary.pairsSuggestion}</p>
+              <p>{heroSummary.pairsSuggestion}</p>
             </div>
           )}
 
           {/* Deck stats */}
-          <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-white/10 bg-card p-4">
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="font-semibold">Deck</h2>
+          <div>
+            <div>
+              <h2>Deck</h2>
               <span
-                className={`text-sm font-bold ${
-                  totalDeckSize > 50
-                    ? 'text-red-400'
-                    : totalDeckSize >= 40
-                      ? 'text-green-400'
-                      : 'text-muted-foreground'
-                }`}
+
               >
                 {totalDeckSize}
               </span>
             </div>
-            <DeckProgress count={totalDeckSize} className="mb-3 h-1.5" />
+            <DeckProgress count={totalDeckSize} />
 
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <div>
               {deckEntries.length === 0 ? (
-                <p className="py-4 text-center text-xs text-muted-foreground">
+                <p>
                   No cards added yet
                 </p>
               ) : (
-                <div className="space-y-2">
+                <div>
                   {TYPE_ORDER.filter(type => deckEntries.some(e => e.card.type === type)).map(type => (
                     <div key={type}>
-                      <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      <p>
                         {TYPE_LABEL[type]}
                       </p>
                       {deckEntries.filter(e => e.card.type === type).map(e => (
@@ -1527,20 +1509,20 @@ export default function DeckBuilder() {
           </div>
 
           {/* Save */}
-          <div className="rounded-lg border border-white/10 bg-card p-4">
-            <h2 className="mb-3 font-semibold">
+          <div>
+            <h2>
               {sessionContext ? 'Save to Session' : editDeckId ? 'Update Deck' : 'Save Deck'}
             </h2>
             <Input
               placeholder={`${selectedHero?.name} — ${selectedAspects.join('/')}`}
               value={deckName}
               onChange={e => setDeckName(e.target.value)}
-              className="mb-3"
+
             />
             <Button
               onClick={() => doSave()}
               disabled={saveStatus === 'saving' || totalDeckSize < 40 || totalDeckSize > 50 || (!sessionContext && !hasChanges)}
-              className="w-full"
+
             >
               {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved!' : sessionContext ? 'Save Deck' : saveLabel}
             </Button>
@@ -1549,16 +1531,16 @@ export default function DeckBuilder() {
                 variant="outline"
                 onClick={() => doSave(true)}
                 disabled={saveStatus === 'saving' || totalDeckSize < 40 || totalDeckSize > 50}
-                className="mt-2 w-full"
+
               >
                 Save as New Deck
               </Button>
             )}
             {saveStatus === 'error' && (
-              <p className="mt-2 text-xs text-red-400">Failed to save. Please try again.</p>
+              <p>Failed to save. Please try again.</p>
             )}
             {saveStatus === 'saved' && (
-              <p className="mt-2 text-xs text-green-400">
+              <p>
                 {sessionContext ? 'Deck saved to session!' : editDeckId ? 'Deck updated!' : 'Deck saved!'}
               </p>
             )}
@@ -1579,13 +1561,13 @@ export default function DeckBuilder() {
           }
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Import from MarvelCDB</DialogTitle>
           </DialogHeader>
           {!importConfirm ? (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
+            <div>
+              <p>
                 Paste a MarvelCDB deck URL or decklist ID to import cards.
               </p>
               <Input
@@ -1595,54 +1577,54 @@ export default function DeckBuilder() {
                 onKeyDown={e => e.key === 'Enter' && handleImport()}
                 autoFocus
               />
-              {importError && <p className="text-sm text-red-400">{importError}</p>}
-              <div className="flex gap-2">
+              {importError && <p>{importError}</p>}
+              <div>
                 <Button
                   variant="outline"
                   onClick={() => { setImportDialogOpen(false); setImportInput(''); setImportError(''); }}
-                  className="flex-1"
+
                 >
                   Cancel
                 </Button>
-                <Button onClick={handleImport} disabled={importLoading || !importInput.trim()} className="flex-1">
+                <Button onClick={handleImport} disabled={importLoading || !importInput.trim()}>
                   {importLoading ? 'Importing…' : 'Import'}
                 </Button>
               </div>
             </div>
           ) : (
-            <div className="space-y-3">
-              <div className="rounded border border-yellow-500/30 bg-yellow-500/10 p-3">
-                <p className="text-sm font-medium text-yellow-400">
+            <div>
+              <div>
+                <p>
                   {importConfirm.mismatch === 'both' && 'Hero and aspect mismatch'}
                   {importConfirm.mismatch === 'hero' && 'Hero mismatch'}
                   {importConfirm.mismatch === 'aspect' && 'Aspect mismatch'}
                 </p>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p>
                   The deck "{importConfirm.deckName}" is for{' '}
-                  <strong className="text-foreground">{importConfirm.heroName}</strong>
+                  <strong>{importConfirm.heroName}</strong>
                   {importConfirm.heroCode !== WARLOCK_ID && importConfirm.aspects.length > 0 && (
-                    <> with <strong className="text-foreground">{importConfirm.aspects.join('/')}</strong></>
+                    <> with <strong>{importConfirm.aspects.join('/')}</strong></>
                   )}
-                  {importConfirm.heroCode === WARLOCK_ID && <> <span className="text-xs">(uses all aspects)</span></>}.
+                  {importConfirm.heroCode === WARLOCK_ID && <> <span>(uses all aspects)</span></>}.
                 </p>
-                <p className="mt-2 text-sm text-muted-foreground">
+                <p>
                   You're currently building{' '}
-                  <strong className="text-foreground">{selectedHero?.name}</strong>
+                  <strong>{selectedHero?.name}</strong>
                   {selectedHero?.id !== WARLOCK_ID && selectedAspects.length > 0 && (
-                    <> with <strong className="text-foreground">{selectedAspects.join('/')}</strong></>
+                    <> with <strong>{selectedAspects.join('/')}</strong></>
                   )}
-                  {selectedHero?.id === WARLOCK_ID && <> <span className="text-xs">(uses all aspects)</span></>}.
+                  {selectedHero?.id === WARLOCK_ID && <> <span>(uses all aspects)</span></>}.
                 </p>
               </div>
-              <div className="flex flex-col gap-2">
-                <Button onClick={confirmImportWithSwitch} className="w-full">
+              <div>
+                <Button onClick={confirmImportWithSwitch}>
                   Switch to {importConfirm.heroName}
                   {importConfirm.heroCode !== WARLOCK_ID && importConfirm.aspects.length > 0 && ` (${importConfirm.aspects.join('/')})`}
                 </Button>
-                <Button variant="outline" onClick={() => { setImportConfirm(null); setImportError(''); }} className="w-full">
+                <Button variant="outline" onClick={() => { setImportConfirm(null); setImportError(''); }}>
                   Try Different Deck
                 </Button>
-                <Button variant="ghost" onClick={() => { setImportDialogOpen(false); setImportInput(''); setImportError(''); setImportConfirm(null); }} className="w-full">
+                <Button variant="ghost" onClick={() => { setImportDialogOpen(false); setImportInput(''); setImportError(''); setImportConfirm(null); }}>
                   Cancel
                 </Button>
               </div>
@@ -1673,28 +1655,28 @@ function DeckRow({
       ? { color: `var(--color-aspect-text-${entry.card.aspect.toLowerCase()})` }
       : undefined;
   return (
-    <div className="group flex items-center gap-1.5 text-xs">
-      <span className={`w-3 flex-shrink-0 text-right font-bold ${isHero ? 'text-white/50' : 'text-muted-foreground'}`}>
+    <div>
+      <span>
         {entry.quantity}
       </span>
       <button
         onClick={() => onCardClick(entry.card)}
-        className="min-w-0 flex-1 truncate text-left hover:underline"
+
         style={nameStyle}
       >
         {entry.card.name}
       </button>
       {!isHero && (
-        <div className="flex flex-shrink-0 items-center gap-0.5 transition-opacity lg:opacity-0 lg:group-hover:opacity-100">
+        <div>
           <button
             onClick={() => onRemove(entry.card.id)}
-            className="flex h-5 w-5 items-center justify-center rounded text-white/50 hover:bg-white/10 hover:text-white"
+
           >
             −
           </button>
           <button
             onClick={() => onAdd(entry.card)}
-            className="flex h-5 w-5 items-center justify-center rounded text-white/50 hover:bg-white/10 hover:text-white"
+
           >
             +
           </button>
@@ -1706,7 +1688,7 @@ function DeckRow({
 
 function OwnedOnlyButton({ active, onClick }: { active: boolean; onClick: () => void }) {
   return (
-    <Button variant={active ? 'default' : 'outline'} size="sm" onClick={onClick} className="shrink-0">
+    <Button variant={active ? 'default' : 'outline'} size="sm" onClick={onClick}>
       Owned only
     </Button>
   );

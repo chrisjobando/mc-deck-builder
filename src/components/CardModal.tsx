@@ -47,61 +47,61 @@ export default function CardModal({ card, onClose }: Props) {
 
   return (
     <Dialog open={card !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-4xl h-[80vh] overflow-hidden p-0 flex flex-col">
+      <DialogContent>
         {card && (
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            <div className={`flex flex-col gap-6 p-6 md:flex-row ${isPSS ? 'md:items-center' : ''}`}>
-            <div className={`flex-shrink-0 ${isPSS ? 'md:w-1/2' : 'md:w-1/3'}`}>
-              <div className={`relative overflow-hidden rounded-lg bg-black/50 shadow-lg ${isPSS ? 'aspect-[88/63]' : 'aspect-[63/88]'}`}>
+          <div>
+            <div>
+            <div>
+              <div>
                 {card.imageUrl ? (
-                  <img src={card.imageUrl} alt={card.name} className="absolute inset-0 h-full w-full object-cover" />
+                  <img src={card.imageUrl} alt={card.name} />
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">No Image</div>
+                  <div>No Image</div>
                 )}
               </div>
             </div>
 
-            <div className={isPSS ? 'md:w-1/2' : 'md:w-2/3'}>
-              <div className="mb-2 flex flex-wrap items-center gap-3">
-                <h2 className="text-2xl font-bold">{card.name}</h2>
+            <div>
+              <div>
+                <h2>{card.name}</h2>
                 {card.health !== null && (
-                  <Badge className="bg-red-600 border-transparent text-white px-3 py-1 h-auto text-sm font-bold">
+                  <Badge>
                     {card.health} HP
                   </Badge>
                 )}
               </div>
 
-              <div className="mb-3 flex flex-wrap gap-2">
-                <CardTypeBadge type={card.type} className="rounded-full px-3 h-7 text-sm" />
-                {card.aspect && <AspectBadge aspect={card.aspect} size="md" className="rounded-full" />}
+              <div>
+                <CardTypeBadge type={card.type} />
+                {card.aspect && <AspectBadge aspect={card.aspect} size="md" />}
                 {card.isUnique && (
-                  <Badge variant="outline" className="rounded-full border-yellow-600/50 bg-yellow-600/20 text-yellow-300 px-3 h-7 text-sm">
+                  <Badge variant="outline">
                     <span className="marvel-glyph">S</span>&nbsp;Unique
                   </Badge>
                 )}
                 {card.isPermanent && (
-                  <Badge variant="outline" className="rounded-full border-purple-600/50 bg-purple-600/20 text-purple-300 px-3 h-7 text-sm">
+                  <Badge variant="outline">
                     Permanent
                   </Badge>
                 )}
                 {card.heroId && (
-                  <Badge variant="outline" className="rounded-full border-purple-600/50 bg-purple-600/20 text-purple-300 px-3 h-7 text-sm">
+                  <Badge variant="outline">
                     Hero Card
                   </Badge>
                 )}
               </div>
 
               {traits.length > 0 && (
-                <div className="mb-3 flex flex-wrap gap-1.5">
+                <div>
                   {traits.map(t => (
-                    <Badge key={t} variant="outline" className="rounded border-white/10 bg-white/10 text-foreground text-sm">
+                    <Badge key={t} variant="outline">
                       {t}
                     </Badge>
                   ))}
                 </div>
               )}
 
-              <div className="mb-4 flex flex-wrap gap-3">
+              <div>
                 {card.cost !== null && <StatBox value={card.cost} label="Cost" color="text-purple-400" />}
                 {card.thwart !== null && (
                   <StatBox
@@ -118,34 +118,34 @@ export default function CardModal({ card, onClose }: Props) {
                   />
                 )}
                 {resources.map(r => (
-                  <div key={r.label} className={`min-w-[60px] rounded-lg p-3 text-center ${r.bg}`}>
-                    <div className={`text-2xl font-bold ${r.text}`}>
+                  <div key={r.label}>
+                    <div>
                       <span className="marvel-glyph">{r.glyph}</span> {r.count}
                     </div>
-                    <div className="text-xs text-muted-foreground">{r.label}</div>
+                    <div>{r.label}</div>
                   </div>
                 ))}
               </div>
 
               {card.text && (
-                <div className="mb-4 rounded-lg bg-black/30 p-4">
+                <div>
                   <div
-                    className="prose prose-invert prose-sm max-w-none"
+
                     dangerouslySetInnerHTML={{ __html: formatCardText(card.text) }}
                   />
                 </div>
               )}
 
-              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+              <div>
                 {card.deckLimit > 0 && (
-                  <span><strong className="text-foreground">Deck Limit:</strong> {card.deckLimit}</span>
+                  <span><strong>Deck Limit:</strong> {card.deckLimit}</span>
                 )}
                 {(() => {
                   const displayPacks = (card.packs && card.packs.length > 0 ? [...card.packs].sort() : card.packName ? [card.packName] : []);
                   if (displayPacks.length === 0) return null;
                   return (
                     <span>
-                      <strong className="text-foreground">{displayPacks.length > 1 ? 'Packs:' : 'Pack:'}</strong>{' '}
+                      <strong>{displayPacks.length > 1 ? 'Packs:' : 'Pack:'}</strong>{' '}
                       {displayPacks.join(', ')}
                     </span>
                   );

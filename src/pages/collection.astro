@@ -10,11 +10,9 @@ const ownedPacks = await getUserOwnedPacks(user.id as string);
 ---
 
 <Layout title="My Collection">
-  <div class="mb-6 flex items-center justify-between">
-    <div>
-      <h1 class="text-3xl font-bold">My Collection</h1>
-      <p class="mt-1 text-[var(--color-text-muted)]">Track which packs you own</p>
-    </div>
+  <div>
+    <h1>My Collection</h1>
+    <p>Track which packs you own</p>
   </div>
 
   <CollectionGrid client:load initialOwned={ownedPacks} />

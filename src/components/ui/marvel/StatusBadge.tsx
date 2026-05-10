@@ -1,6 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import { STATUS_COLOR, STATUS_LABEL } from '@/lib/sessionConstants';
-import { cn } from '@/lib/utils';
+import { STATUS_LABEL } from '@/lib/sessionConstants';
 
 interface StatusBadgeProps {
   status: string;
@@ -9,14 +8,7 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
   return (
-    <Badge
-      variant="outline"
-      className={cn(
-        'border-transparent text-xs font-medium',
-        STATUS_COLOR[status] ?? 'bg-white/10 text-gray-400',
-        className
-      )}
-    >
+    <Badge variant="outline" className={className}>
       {STATUS_LABEL[status] ?? status}
     </Badge>
   );

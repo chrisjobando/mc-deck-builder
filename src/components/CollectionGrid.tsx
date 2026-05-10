@@ -28,9 +28,7 @@ function ProgressPill({ owned, total }: { owned: number; total: number }) {
   return (
     <Badge
       variant="outline"
-      className={`border-transparent tabular-nums text-xs font-semibold ${
-        complete ? 'bg-green-500/20 text-green-400' : 'bg-white/10 text-muted-foreground'
-      }`}
+
     >
       {owned} / {total}
     </Badge>
@@ -98,22 +96,22 @@ export default function CollectionGrid({ initialOwned }: Props) {
   return (
     <>
       {/* Total progress */}
-      <div className="mb-8 rounded-lg border border-border bg-white/5 p-4">
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-sm font-semibold">Total collection</span>
-          <span className="text-sm tabular-nums text-muted-foreground">
+      <div>
+        <div>
+          <span>Total collection</span>
+          <span>
             {totalOwned} / {totalPacks}
           </span>
         </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+        <div>
           <div
-            className="h-full rounded-full bg-primary transition-all duration-300"
+
             style={{ width: `${(totalOwned / totalPacks) * 100}%` }}
           />
         </div>
       </div>
 
-      <div className="space-y-8">
+      <div>
         {CYCLES.map(cycle => {
           const toggleablePacks = cycle.packs.filter(p => !ALWAYS_OWNED_CODES.has(p.code));
           const cycleTotal = cycle.packs.length;
@@ -128,43 +126,43 @@ export default function CollectionGrid({ initialOwned }: Props) {
 
           return (
             <section key={cycle.number}>
-              <div className="mb-3 flex items-center gap-2">
-                <h2 className="text-lg font-semibold text-muted-foreground">{cycle.name}</h2>
+              <div>
+                <h2>{cycle.name}</h2>
                 <ProgressPill owned={cycleOwned} total={cycleTotal} />
                 <Button
                   variant="link"
                   size="sm"
-                  className="ml-auto text-xs text-muted-foreground hover:text-foreground p-0 h-auto"
+
                   onClick={() => selectAllInCycle(cycle.number, !allSelected)}
                 >
                   {allSelected ? 'Deselect all' : 'Select all'}
                 </Button>
               </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div>
                 {columns.map(col => (
-                  <div key={col.label} className="rounded-lg border border-border bg-white/5 p-4">
-                    <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <div key={col.label}>
+                    <h3>
                       {col.label}
                     </h3>
-                    <ul className="space-y-2">
+                    <ul>
                       {col.packs.map(pack => {
                         const alwaysOwned = ALWAYS_OWNED_CODES.has(pack.code);
                         const isOwned = alwaysOwned || owned.has(pack.code);
                         return (
                           <li key={pack.code}>
                             <label
-                              className={`flex cursor-pointer items-center gap-3 rounded px-1 py-1 transition hover:bg-white/5 ${alwaysOwned ? 'cursor-default opacity-60' : ''}`}
+
                             >
                               <input
                                 type="checkbox"
-                                className="h-4 w-4 accent-primary"
+
                                 checked={isOwned}
                                 disabled={alwaysOwned}
                                 onChange={e => toggle(pack.code, e.target.checked)}
                               />
-                              <span className="text-sm">{pack.name}</span>
+                              <span>{pack.name}</span>
                               {alwaysOwned && (
-                                <span className="ml-auto text-xs text-muted-foreground">always</span>
+                                <span>always</span>
                               )}
                             </label>
                           </li>
@@ -181,11 +179,11 @@ export default function CollectionGrid({ initialOwned }: Props) {
 
       {/* Floating save bar */}
       <div
-        className={`fixed bottom-0 left-0 right-0 flex items-center justify-center px-4 pt-4 transition-all duration-200 ${dirty ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`}
+
         style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
       >
-        <div className="flex items-center gap-4 rounded-xl border border-border bg-card px-6 py-3 shadow-2xl">
-          <span className="w-36 text-sm text-muted-foreground">{saveLabel}</span>
+        <div>
+          <span>{saveLabel}</span>
           <Button
             onClick={handleSave}
             disabled={saveState === 'saving'}
